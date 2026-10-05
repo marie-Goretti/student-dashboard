@@ -135,20 +135,6 @@ export default function FiltersBar({ filters, onChange }) {
             ))}
           </select>
         </div>
-
-        {/* Résultat */}
-        <div className={selectContainerClass}>
-          <span className={labelClass}>Résultat</span>
-          <select
-            className={selectClass}
-            value={filters.resultat || ''}
-            onChange={(e) => handleChange('resultat', e.target.value)}
-          >
-            <option value="">Tous</option>
-            <option value="ADMIS">Admis</option>
-            <option value="AJOURNE">Ajourné</option>
-          </select>
-        </div>
       </div>
 
       {/* Bouton Réinitialiser */}
