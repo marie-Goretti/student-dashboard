@@ -1,12 +1,10 @@
 import Sidebar from './Sidebar';
-import TopBanner from './TopBanner';
 
-export default function MainLayout({ children, heroContent }) {
+export default function MainLayout({ children }) {
   return (
-    <div className="flex bg-cream min-h-screen">
+    <div className="flex bg-cream min-h-screen font-sans text-ink antialiased">
       <Sidebar />
-      <main className="ml-20 flex-1 p-6 md:p-8">
-        <TopBanner>{heroContent}</TopBanner>
+      <main className="ml-[72px] flex-1 p-5 md:p-8 overflow-x-hidden">
         {children}
       </main>
     </div>

@@ -8,16 +8,19 @@ from . import services
 
 
 def _extract_filters(request):
-    """Extrait les filtres id_niv / id_mod / id_annee depuis les query params."""
+    """Extrait les filtres depuis les query params."""
     return {
         'id_niv': request.query_params.get('id_niv'),
         'id_mod': request.query_params.get('id_mod'),
         'id_annee': request.query_params.get('id_annee'),
+        'filiere': request.query_params.get('filiere'),
+        'semestre': request.query_params.get('semestre'),
+        'resultat': request.query_params.get('resultat'),
     }
 
 
 class KpiSummaryView(APIView):
-    """GET /api/dashboard/kpi-summary/?id_niv=&id_mod=&id_annee="""
+    """GET /api/dashboard/kpi-summary/"""
     def get(self, request):
         return Response(services.get_kpi_summary(_extract_filters(request)))
 
@@ -26,6 +29,18 @@ class RepartitionParNiveauView(APIView):
     """GET /api/dashboard/repartition-niveau/"""
     def get(self, request):
         return Response(services.get_repartition_par_niveau(_extract_filters(request)))
+
+
+class DevoirVsExamenView(APIView):
+    """GET /api/dashboard/devoir-vs-examen/"""
+    def get(self, request):
+        return Response(services.get_devoir_vs_examen(_extract_filters(request)))
+
+
+class PointsClesView(APIView):
+    """GET /api/dashboard/points-cles/"""
+    def get(self, request):
+        return Response(services.get_points_cles(_extract_filters(request)))
 
 
 class RepartitionParModuleView(APIView):

@@ -2,13 +2,15 @@ from django.urls import path
 from .views import (
     KpiSummaryView, RepartitionParNiveauView, RepartitionParModuleView,
     EvolutionParAnneeView, DistributionNotesView, ComparaisonFilieresView,
-    TopModulesView, StudentDashboardView,
+    TopModulesView, StudentDashboardView, DevoirVsExamenView, PointsClesView,
 )
 
 app_name = 'dashboard'
 urlpatterns = [
     path('kpi-summary/', KpiSummaryView.as_view(), name='kpi-summary'),
     path('repartition-niveau/', RepartitionParNiveauView.as_view(), name='repartition-niveau'),
+    path('devoir-vs-examen/', DevoirVsExamenView.as_view(), name='devoir-vs-examen'),
+    path('points-cles/', PointsClesView.as_view(), name='points-cles'),
     path('repartition-module/', RepartitionParModuleView.as_view(), name='repartition-module'),
     path('evolution-annee/', EvolutionParAnneeView.as_view(), name='evolution-annee'),
     path('distribution-notes/', DistributionNotesView.as_view(), name='distribution-notes'),

@@ -41,3 +41,13 @@ export const getComparaisonFilieres = async (filters = {}) => {
   const { data } = await axiosClient.get('/dashboard/comparaison-filieres/', { params: filters });
   return data;
 };
+
+export const getDevoirVsExamen = async (filters = {}) => {
+  const { data } = await axiosClient.get('/dashboard/devoir-vs-examen/', { params: filters });
+  return data;
+};
+
+export const getPointsCles = async (filters = {}) => {
+  const { data } = await axiosClient.get('/dashboard/points-cles/', { params: filters });
+  return data;
+};

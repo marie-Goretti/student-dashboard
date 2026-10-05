@@ -1,50 +1,57 @@
 import { useEffect, useState, useCallback } from 'react';
 import MainLayout from '../components/layout/MainLayout';
+import HeaderBar from '../components/layout/HeaderBar';
+import HeroBanner from '../components/dashboard/HeroBanner';
 import FiltersBar from '../components/dashboard/FiltersBar';
-import HeroStatCard from '../components/dashboard/HeroStatCard';
-import BarChartCard from '../components/dashboard/BarChartCard';
-import LineChartCard from '../components/dashboard/LineChartCard';
-import TopModulesList from '../components/dashboard/TopModulesList';
+import MoyenneParNiveauCard from '../components/dashboard/MoyenneParNiveauCard';
+import DevoirVsExamenCard from '../components/dashboard/DevoirVsExamenCard';
+import PointsClesCard from '../components/dashboard/PointsClesCard';
+import EvolutionReussiteCard from '../components/dashboard/EvolutionReussiteCard';
+import DistributionNotesCard from '../components/dashboard/DistributionNotesCard';
 import {
-  getKpiSummary, getRepartitionParNiveau, getEvolutionParAnnee,
-  getDistributionNotes, getTopModules, getComparaisonFilieres,
+  getKpiSummary,
+  getRepartitionParNiveau,
+  getDevoirVsExamen,
+  getPointsCles,
+  getEvolutionParAnnee,
+  getDistributionNotes,
 } from '../api/dashboardService';
-import { Users, TrendingUp, Award, RotateCcw } from 'lucide-react';
-
-// Les 10 niveaux officiels : sert à exclure les codes résiduels/invalides
-// (ex: 'NAN') des graphiques, en plus du filtre déjà appliqué côté sélecteur.
-const NIVEAU_OFFICIELS = [
-  'B1M', 'B1SI', 'B2M', 'B2SI', 'B3M', 'B3SI',
-  'M1M', 'M1SI', 'M2M', 'M2SI',
-];
 
 export default function DashboardPage() {
   const [filters, setFilters] = useState({});
   const [kpi, setKpi] = useState(null);
   const [parNiveau, setParNiveau] = useState([]);
-  const [comparaisonFilieres, setComparaisonFilieres] = useState([]);
+  const [devoirVsExamen, setDevoirVsExamen] = useState([]);
+  const [pointsCles, setPointsCles] = useState([]);
   const [evolution, setEvolution] = useState([]);
   const [distribution, setDistribution] = useState([]);
-  const [topModules, setTopModules] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [kpiData, niveauData, filieresData, evolutionData, distribData, topModulesData] = await Promise.all([
+      const [
+        kpiData,
+        niveauData,
+        devoirData,
+        pointsData,
+        evolutionData,
+        distribData,
+      ] = await Promise.all([
         getKpiSummary(filters),
         getRepartitionParNiveau(filters),
-        getComparaisonFilieres(filters),
+        getDevoirVsExamen(filters),
+        getPointsCles(filters),
         getEvolutionParAnnee(filters),
         getDistributionNotes(filters),
-        getTopModules(filters, 5),
       ]);
+
       setKpi(kpiData);
       setParNiveau(niveauData);
-      setComparaisonFilieres(filieresData);
+      setDevoirVsExamen(devoirData);
+      setPointsCles(pointsData);
       setEvolution(evolutionData);
       setDistribution(distribData);
-      setTopModules(topModulesData);
     } catch (err) {
       console.error('Erreur chargement dashboard:', err);
     } finally {
@@ -56,55 +63,50 @@ export default function DashboardPage() {
     loadData();
   }, [loadData]);
 
-  // --- Cartes KPI compactes, superposées en bas à gauche du Hero ---
-  const heroStats = (
-    <div className="flex flex-wrap gap-3">
-      <HeroStatCard label="Effectif total évalué" value={kpi?.effectif_total_evalue} icon={Users} />
-      <HeroStatCard label="Taux de réussite" value={kpi?.taux_reussite} icon={Award} suffix="%" />
-      <HeroStatCard label="Moyenne générale" value={kpi?.moyenne_generale} icon={TrendingUp} suffix="/20" />
-      <HeroStatCard label="Passage en rattrapage" value={kpi?.taux_passage_rattrapage} icon={RotateCcw} suffix="%" />
-    </div>
-  );
-
   return (
-    <MainLayout heroContent={heroStats}>
+    <MainLayout>
+      {/* 1. En-tête : Titre, Année, Recherche EduPulse, Cloche 3, AD Administrateur */}
+      <HeaderBar currentAnnee="2024-2025" />
+
+      {/* 2. Hero Banner avec image de campus contenant les 4 KPIs : Nombre d'étudiants, Moyenne générale, Taux de réussite, Taux d'échec */}
+      <HeroBanner
+        kpi={kpi}
+        onAlertClick={() => {
+          setFilters((prev) => ({ ...prev, resultat: 'AJOURNE' }));
+        }}
+      />
+
+      {/* 3. Barre de filtres juste après le cadre gris des KPIs et au-dessus des graphes */}
       <FiltersBar filters={filters} onChange={setFilters} />
 
+      {/* 5. Section des graphiques demandés */}
       {loading ? (
-        <p className="text-ink/40 text-center py-20">Chargement des données...</p>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-3 border-navy-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-ink/50">Mise à jour des analyses en cours...</p>
+          </div>
+        </div>
       ) : (
-        <>
-          {/* --- 3 colonnes égales : niveau / module / top 5 --- */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-6 items-stretch">
-            <BarChartCard
-              title="Moyenne par niveau"
-              data={parNiveau.filter((n) => NIVEAU_OFFICIELS.includes(n.niveau))}
-              xKey="niveau"
-              bars={[{ key: 'moyenne', name: 'Moyenne' }]}
-              shadeByValue
-              angledLabels
-            />
-            <BarChartCard
-              title="Management vs Système d'Information"
-              data={comparaisonFilieres}
-              xKey="filiere"
-              bars={[{ key: 'moyenne', name: 'Moyenne' }]}
-              shadeByValue
-            />
-            <TopModulesList modules={topModules} />
+        <div className="space-y-5">
+          {/* Rangée 1 : 3 graphiques (Moyenne par niveau, Évolution linéaire de la réussite, Points clés détectés) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
+            <MoyenneParNiveauCard data={parNiveau} />
+            <EvolutionReussiteCard data={evolution} currentPeriod="2024-2025" />
+            <PointsClesCard points={pointsCles} />
           </div>
 
-          {/* --- Graphiques complémentaires --- */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <LineChartCard title="Évolution par année académique" data={evolution} />
-            <BarChartCard
-              title="Distribution des notes"
+          {/* Rangée 2 : 2 graphiques larges (Devoir vs examen final moyenne, Distribution des notes) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+            <DevoirVsExamenCard data={devoirVsExamen} />
+            <DistributionNotesCard
               data={distribution}
-              xKey="tranche"
-              bars={[{ key: 'effectif', name: "Nombre d'étudiants" }]}
+              onExploreClick={() => {
+                alert('Exploration des cohortes par tranche de performance');
+              }}
             />
           </div>
-        </>
+        </div>
       )}
     </MainLayout>
   );
