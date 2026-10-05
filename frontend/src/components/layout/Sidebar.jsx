@@ -2,15 +2,11 @@ import {
   Zap,
   Home,
   LayoutGrid,
-  TrendingUp,
   Layers,
   BookOpen,
   Users,
   RotateCw,
   Bell,
-  HelpCircle,
-  BarChart3,
-  Database,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -22,66 +18,82 @@ export default function Sidebar() {
 
   return (
     <aside className="w-[72px] bg-white border-r border-cream-200 h-screen flex flex-col items-center py-4 fixed left-0 top-0 z-40 select-none">
-      {/* Logo EduPulse rouge bordeaux avec éclair */}
-      <div className="w-10 h-10 rounded-xl bg-maroon-500 text-white flex items-center justify-center mb-6 shadow-sm shadow-maroon-500/20">
+      {/* 1. Sur le haut : Le logo */}
+      <NavLink
+        to="/"
+        title="EduPulse"
+        className="w-10 h-10 rounded-xl bg-maroon-500 text-white flex items-center justify-center mb-6 shadow-sm shadow-maroon-500/20 shrink-0"
+      >
         <Zap size={20} className="fill-white" />
-      </div>
+      </NavLink>
 
-      {/* Navigation principale */}
-      <nav className="flex-1 flex flex-col items-center gap-2 overflow-y-auto no-scrollbar py-1">
-        {/* Accueil */}
+      {/* 2. Au milieu : Accueil (Import), Tableau de bord, Niveaux, Modules, Étudiants, Rattrapages, Alertes */}
+      <nav className="flex-1 flex flex-col items-center gap-2.5">
+        {/* L'accueil (qui permet d'importer nos données) */}
         <NavLink
-          to="/"
-          end
-          title="Accueil"
+          to="/import"
+          title="Accueil — Import de données"
           className={({ isActive }) =>
             `w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
               isActive
-                ? 'bg-navy-700 text-white shadow-sm'
-                : 'text-ink/60 hover:text-ink hover:bg-cream-100'
+                ? 'bg-navy-600 text-white shadow-sm'
+                : 'text-ink/50 hover:text-ink hover:bg-cream-100'
             }`
           }
         >
           <Home size={18} />
         </NavLink>
 
-        {/* Dashboard (actif par défaut) */}
+        {/* Le tableau de bord */}
         <NavLink
           to="/"
+          end
           title="Tableau de bord"
-          className="w-10 h-10 rounded-xl flex items-center justify-center transition-all bg-navy-600 text-white shadow-sm"
+          className={({ isActive }) =>
+            `w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              isActive
+                ? 'bg-navy-600 text-white shadow-sm'
+                : 'text-ink/50 hover:text-ink hover:bg-cream-100'
+            }`
+          }
         >
           <LayoutGrid size={18} />
         </NavLink>
 
-        {/* Analytics / Tendance */}
-        <button
-          title="Analyses et tendances"
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-ink/50 hover:text-ink hover:bg-cream-100 transition-all"
-        >
-          <TrendingUp size={18} />
-        </button>
-
-        {/* Filières / Programmes */}
-        <button
-          title="Programmes"
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-ink/50 hover:text-ink hover:bg-cream-100 transition-all"
+        {/* Niveaux */}
+        <NavLink
+          to="/niveaux"
+          title="Niveaux"
+          className={({ isActive }) =>
+            `w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              isActive
+                ? 'bg-navy-600 text-white shadow-sm'
+                : 'text-ink/50 hover:text-ink hover:bg-cream-100'
+            }`
+          }
         >
           <Layers size={18} />
-        </button>
+        </NavLink>
 
-        {/* Modules / Cours */}
-        <button
-          title="Modules & Matières"
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-ink/50 hover:text-ink hover:bg-cream-100 transition-all"
+        {/* Modules */}
+        <NavLink
+          to="/modules"
+          title="Modules"
+          className={({ isActive }) =>
+            `w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              isActive
+                ? 'bg-navy-600 text-white shadow-sm'
+                : 'text-ink/50 hover:text-ink hover:bg-cream-100'
+            }`
+          }
         >
           <BookOpen size={18} />
-        </button>
+        </NavLink>
 
         {/* Étudiants */}
         <NavLink
           to="/students"
-          title="Fiches Étudiants"
+          title="Étudiants"
           className={({ isActive }) =>
             `w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
               isActive
@@ -93,42 +105,10 @@ export default function Sidebar() {
           <Users size={18} />
         </NavLink>
 
-        {/* Sync / Rattrapage */}
-        <button
-          title="Synchronisation"
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-ink/50 hover:text-ink hover:bg-cream-100 transition-all"
-        >
-          <RotateCw size={18} />
-        </button>
-
-        {/* Notifications */}
-        <button
-          title="Notifications"
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-ink/50 hover:text-ink hover:bg-cream-100 transition-all"
-        >
-          <Bell size={18} />
-        </button>
-
-        {/* Aide */}
-        <button
-          title="Support & Aide"
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-ink/50 hover:text-ink hover:bg-cream-100 transition-all"
-        >
-          <HelpCircle size={18} />
-        </button>
-
-        {/* Rapports graphiques */}
-        <button
-          title="Rapports"
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-ink/50 hover:text-ink hover:bg-cream-100 transition-all"
-        >
-          <BarChart3 size={18} />
-        </button>
-
-        {/* Import & Données */}
+        {/* Rattrapages */}
         <NavLink
-          to="/import"
-          title="Base de données & Import"
+          to="/rattrapages"
+          title="Rattrapages"
           className={({ isActive }) =>
             `w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
               isActive
@@ -137,22 +117,45 @@ export default function Sidebar() {
             }`
           }
         >
-          <Database size={18} />
+          <RotateCw size={18} />
+        </NavLink>
+
+        {/* Alertes */}
+        <NavLink
+          to="/alertes"
+          title="Alertes"
+          className={({ isActive }) =>
+            `w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              isActive
+                ? 'bg-navy-600 text-white shadow-sm'
+                : 'text-ink/50 hover:text-ink hover:bg-cream-100'
+            }`
+          }
+        >
+          <Bell size={18} />
         </NavLink>
       </nav>
 
-      {/* Bas de sidebar : Réglages & Déconnexion */}
+      {/* 3. Sur le bas : Paramètres & Déconnexion */}
       <div className="flex flex-col items-center gap-2 pt-2 border-t border-cream-200">
-        <button
+        <NavLink
+          to="/settings"
           title="Paramètres"
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-ink/50 hover:text-ink hover:bg-cream-100 transition-all"
+          className={({ isActive }) =>
+            `w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              isActive
+                ? 'bg-navy-600 text-white shadow-sm'
+                : 'text-ink/50 hover:text-ink hover:bg-cream-100'
+            }`
+          }
         >
           <Settings size={18} />
-        </button>
+        </NavLink>
+
         <button
           onClick={logout}
           title="Déconnexion"
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-maroon-500 hover:bg-maroon-50 transition-all"
+          className="w-10 h-10 rounded-xl flex items-center justify-center text-maroon-500 hover:bg-maroon-50 transition-all cursor-pointer"
         >
           <LogOut size={18} />
         </button>
