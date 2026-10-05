@@ -65,3 +65,61 @@ class ImportGradesView(APIView):
             )
 
         return Response(report, status=status.HTTP_200_OK)
+
+
+class AnalyzeFileView(APIView):
+    """POST /api/etl/analyze/ (multipart/form-data, champ 'file')"""
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response(
+                {'detail': "Aucun fichier fourni (champ 'file' attendu)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not file_obj.name.endswith(('.xlsx', '.xls', '.csv')):
+            return Response(
+                {'detail': "Format de fichier invalide. Seuls les .xlsx, .xls et .csv sont acceptés."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            from .services.auto_import import analyze_uploaded_file
+            data = analyze_uploaded_file(file_obj)
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'detail': f"Erreur lors de l'analyse du fichier : {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class AutoImportView(APIView):
+    """POST /api/etl/import-auto/ (multipart/form-data, champ 'file')"""
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response(
+                {'detail': "Aucun fichier fourni (champ 'file' attendu)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not file_obj.name.endswith(('.xlsx', '.xls', '.csv')):
+            return Response(
+                {'detail': "Format de fichier invalide. Seuls les .xlsx, .xls et .csv sont acceptés."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            from .services.auto_import import execute_auto_import
+            result = execute_auto_import(file_obj)
+            return Response(result, status=status.HTTP_200_OK)
+        except (StudentImportError, GradeImportError) as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response(
+                {'detail': f"Erreur inattendue lors de l'import : {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
