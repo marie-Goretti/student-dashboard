@@ -116,6 +116,81 @@ def get_evolution_par_annee(filters: dict) -> list:
     return result
 
 
+NIVEAUX_OFFICIELS = [
+    'B1M', 'B1SI', 'B2M', 'B2SI', 'B3M', 'B3SI',
+    'M1M', 'M1SI', 'M2M', 'M2SI',
+]
+
+
+def get_comparaison_filieres(filters: dict) -> list:
+    """
+    Données du Clustered Bar Chart : comparaison de la moyenne entre les
+    deux filières (Management = codes finissant par 'M', Système
+    d'Information = codes finissant par 'SI').
+
+    Renvoie un premier groupe 'Global' (moyenne de toutes les évaluations
+    de chaque filière, tous niveaux confondus), puis un groupe par année
+    d'étude (B1, B2, B3, M1, M2) avec la moyenne de chaque filière.
+    """
+    qs = _apply_filters(FactEvaluation.objects.all(), filters)
+    qs = qs.exclude(moyenne__isnull=True).filter(id_niv__code_niv__in=NIVEAUX_OFFICIELS)
+
+    def _round(value):
+        return round(value, 2) if value is not None else None
+
+    # --- Groupe "Global" : moyenne pondérée par évaluation, par filière ---
+    global_management = qs.filter(id_niv__code_niv__endswith='M').aggregate(avg=Avg('moyenne'))['avg']
+    global_si = qs.filter(id_niv__code_niv__endswith='SI').aggregate(avg=Avg('moyenne'))['avg']
+    result = [{
+        'groupe': 'Global',
+        'management': _round(global_management),
+        'systeme_information': _round(global_si),
+    }]
+
+    # --- Un groupe par année d'étude ---
+    par_niveau = {
+        row['id_niv__code_niv']: row['moyenne']
+        for row in qs.values('id_niv__code_niv').annotate(moyenne=Avg('moyenne'))
+    }
+    for prefix in ['B1', 'B2', 'B3', 'M1', 'M2']:
+        result.append({
+            'groupe': prefix,
+            'management': _round(par_niveau.get(f'{prefix}M')),
+            'systeme_information': _round(par_niveau.get(f'{prefix}SI')),
+        })
+
+    return result
+
+
+def get_comparaison_filieres(filters: dict) -> list:
+    """
+    Compare la moyenne générale des deux filières (Management vs Système
+    d'Information), tous niveaux confondus — un seul chiffre par filière.
+    Dérivé des codes niveau officiels : tout code se terminant par 'M'
+    (hors 'SI') est Management, tout code se terminant par 'SI' est
+    Système d'Information.
+    """
+    qs = _apply_filters(FactEvaluation.objects.all(), filters).exclude(id_niv__code_niv='NAN')
+
+    management_avg = qs.filter(id_niv__code_niv__in=['B1M', 'B2M', 'B3M', 'M1M', 'M2M']).aggregate(
+        avg=Avg('moyenne')
+    )['avg']
+    si_avg = qs.filter(id_niv__code_niv__in=['B1SI', 'B2SI', 'B3SI', 'M1SI', 'M2SI']).aggregate(
+        avg=Avg('moyenne')
+    )['avg']
+
+    return [
+        {
+            'filiere': 'Management',
+            'moyenne': round(management_avg, 2) if management_avg is not None else None,
+        },
+        {
+            'filiere': "Système d'Information",
+            'moyenne': round(si_avg, 2) if si_avg is not None else None,
+        },
+    ]
+
+
 def get_top_modules(filters: dict, limit: int = 5) -> list:
     """
     Top N des couples (module, niveau) ayant la meilleure moyenne, pour

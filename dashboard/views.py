@@ -46,6 +46,12 @@ class DistributionNotesView(APIView):
         return Response(services.get_distribution_notes(_extract_filters(request)))
 
 
+class ComparaisonFilieresView(APIView):
+    """GET /api/dashboard/comparaison-filieres/ — Management vs SI par palier"""
+    def get(self, request):
+        return Response(services.get_comparaison_filieres(_extract_filters(request)))
+
+
 class TopModulesView(APIView):
     """GET /api/dashboard/top-modules/?id_niv=&id_mod=&id_annee=&limit=5"""
     def get(self, request):

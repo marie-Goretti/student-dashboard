@@ -6,8 +6,8 @@ import BarChartCard from '../components/dashboard/BarChartCard';
 import LineChartCard from '../components/dashboard/LineChartCard';
 import TopModulesList from '../components/dashboard/TopModulesList';
 import {
-  getKpiSummary, getRepartitionParNiveau, getRepartitionParModule,
-  getEvolutionParAnnee, getDistributionNotes, getTopModules,
+  getKpiSummary, getRepartitionParNiveau, getEvolutionParAnnee,
+  getDistributionNotes, getTopModules, getComparaisonFilieres,
 } from '../api/dashboardService';
 import { Users, TrendingUp, Award, RotateCcw } from 'lucide-react';
 
@@ -22,7 +22,7 @@ export default function DashboardPage() {
   const [filters, setFilters] = useState({});
   const [kpi, setKpi] = useState(null);
   const [parNiveau, setParNiveau] = useState([]);
-  const [parModule, setParModule] = useState([]);
+  const [comparaisonFilieres, setComparaisonFilieres] = useState([]);
   const [evolution, setEvolution] = useState([]);
   const [distribution, setDistribution] = useState([]);
   const [topModules, setTopModules] = useState([]);
@@ -31,17 +31,17 @@ export default function DashboardPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [kpiData, niveauData, moduleData, evolutionData, distribData, topModulesData] = await Promise.all([
+      const [kpiData, niveauData, filieresData, evolutionData, distribData, topModulesData] = await Promise.all([
         getKpiSummary(filters),
         getRepartitionParNiveau(filters),
-        getRepartitionParModule(filters),
+        getComparaisonFilieres(filters),
         getEvolutionParAnnee(filters),
         getDistributionNotes(filters),
         getTopModules(filters, 5),
       ]);
       setKpi(kpiData);
       setParNiveau(niveauData);
-      setParModule(moduleData);
+      setComparaisonFilieres(filieresData);
       setEvolution(evolutionData);
       setDistribution(distribData);
       setTopModules(topModulesData);
@@ -85,13 +85,11 @@ export default function DashboardPage() {
               angledLabels
             />
             <BarChartCard
-              title="Moyenne & réussite par module"
-              data={parModule}
-              xKey="module"
-              bars={[
-                { key: 'moyenne', name: 'Moyenne' },
-                { key: 'taux_reussite', name: 'Taux réussite (%)' },
-              ]}
+              title="Management vs Système d'Information"
+              data={comparaisonFilieres}
+              xKey="filiere"
+              bars={[{ key: 'moyenne', name: 'Moyenne' }]}
+              shadeByValue
             />
             <TopModulesList modules={topModules} />
           </div>

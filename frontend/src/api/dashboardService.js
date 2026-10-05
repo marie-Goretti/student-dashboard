@@ -36,3 +36,8 @@ export const getTopModules = async (filters = {}, limit = 5) => {
   });
   return data;
 };
+
+export const getComparaisonFilieres = async (filters = {}) => {
+  const { data } = await axiosClient.get('/dashboard/comparaison-filieres/', { params: filters });
+  return data;
+};
