@@ -68,3 +68,13 @@ export const getAnalyseEtudiants = async (filters = {}, search = '') => {
   const { data } = await axiosClient.get('/dashboard/analyse-etudiants/', { params });
   return data;
 };
+
+export const getAnalyseRattrapages = async (filters = {}) => {
+  const { data } = await axiosClient.get('/dashboard/analyse-rattrapages/', { params: filters });
+  return data;
+};
+
+export const getRecommandations = async (filters = {}) => {
+  const { data } = await axiosClient.get('/dashboard/recommandations/', { params: filters });
+  return data;
+};

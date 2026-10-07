@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
 import HeroBanner from '../components/dashboard/HeroBanner';
@@ -18,6 +19,7 @@ import {
 } from '../api/dashboardService';
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState({});
   const [kpi, setKpi] = useState(null);
   const [parNiveau, setParNiveau] = useState([]);
@@ -72,7 +74,7 @@ export default function DashboardPage() {
       <HeroBanner
         kpi={kpi}
         onAlertClick={() => {
-          navigate('/alertes');
+          navigate('/recommandations');
         }}
       />
 

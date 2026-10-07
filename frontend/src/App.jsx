@@ -8,6 +8,8 @@ import ModulesPage from './pages/ModulesPage';
 import StudentsSearchPage from './pages/StudentsSearchPage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
 
+import RattrapagesPage from './pages/RattrapagesPage';
+import RecommandationsPage from './pages/RecommandationsPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 function PrivateRoute({ children }) {
@@ -25,8 +27,10 @@ function AppRoutes() {
       <Route path="/modules" element={<PrivateRoute><ModulesPage /></PrivateRoute>} />
       <Route path="/students" element={<PrivateRoute><StudentsSearchPage /></PrivateRoute>} />
       <Route path="/students/:id" element={<PrivateRoute><StudentDashboardPage /></PrivateRoute>} />
-      <Route path="/rattrapages" element={<PrivateRoute><PlaceholderPage title="Rattrapages" description="Suivi des sessions et passages en rattrapage" /></PrivateRoute>} />
-      <Route path="/alertes" element={<PrivateRoute><PlaceholderPage title="Alertes" description="Notification et détection des situations critiques" /></PrivateRoute>} />
+      <Route path="/rattrapages" element={<PrivateRoute><RattrapagesPage /></PrivateRoute>} />
+      <Route path="/recommandations" element={<PrivateRoute><RecommandationsPage /></PrivateRoute>} />
+      <Route path="/recommandations-decisionnelles" element={<PrivateRoute><RecommandationsPage /></PrivateRoute>} />
+      <Route path="/alertes" element={<Navigate to="/recommandations" replace />} />
       <Route path="/settings" element={<PrivateRoute><PlaceholderPage title="Paramètres" description="Configuration et préférences" /></PrivateRoute>} />
     </Routes>
   );

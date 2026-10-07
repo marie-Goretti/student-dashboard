@@ -4,6 +4,7 @@ from .views import (
     EvolutionParAnneeView, DistributionNotesView, ComparaisonFilieresView,
     TopModulesView, StudentDashboardView, DevoirVsExamenView, PointsClesView,
     AnalyseNiveauxView, AnalyseModulesView, AnalyseEtudiantsView,
+    AnalyseRattrapagesView, RecommandationsView,
 )
 
 app_name = 'dashboard'
@@ -13,6 +14,8 @@ urlpatterns = [
     path('analyse-niveaux/', AnalyseNiveauxView.as_view(), name='analyse-niveaux'),
     path('analyse-modules/', AnalyseModulesView.as_view(), name='analyse-modules'),
     path('analyse-etudiants/', AnalyseEtudiantsView.as_view(), name='analyse-etudiants'),
+    path('analyse-rattrapages/', AnalyseRattrapagesView.as_view(), name='analyse-rattrapages'),
+    path('recommandations/', RecommandationsView.as_view(), name='recommandations'),
     path('devoir-vs-examen/', DevoirVsExamenView.as_view(), name='devoir-vs-examen'),
     path('points-cles/', PointsClesView.as_view(), name='points-cles'),
     path('repartition-module/', RepartitionParModuleView.as_view(), name='repartition-module'),

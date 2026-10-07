@@ -40,7 +40,7 @@ export default function HeroBanner({ kpi, onAlertClick }) {
               onClick={onAlertClick}
               className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-white bg-maroon-500 hover:bg-maroon-600 transition shadow-sm cursor-pointer"
             >
-              Voir les alertes
+              Voir les recommandations
               <ArrowUpRight size={14} />
             </button>
           </div>

@@ -6,7 +6,7 @@ import {
   BookOpen,
   Users,
   RotateCw,
-  Bell,
+  Lightbulb,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -27,7 +27,7 @@ export default function Sidebar() {
         <Zap size={20} className="fill-white" />
       </NavLink>
 
-      {/* 2. Au milieu : Import, Tableau de bord, Niveaux, Modules, Étudiants, Rattrapages, Alertes */}
+      {/* 2. Au milieu : Import, Tableau de bord, Niveaux, Modules, Étudiants, Rattrapages, Recommandations décisionnelles */}
       <nav className="flex-1 flex flex-col items-center gap-2.5">
         {/* Import (qui permet d'importer nos données) */}
         <NavLink
@@ -120,10 +120,10 @@ export default function Sidebar() {
           <RotateCw size={18} />
         </NavLink>
 
-        {/* Alertes */}
+        {/* Recommandations décisionnelles */}
         <NavLink
-          to="/alertes"
-          title="Alertes"
+          to="/recommandations"
+          title="Recommandations décisionnelles"
           className={({ isActive }) =>
             `w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
               isActive
@@ -132,7 +132,7 @@ export default function Sidebar() {
             }`
           }
         >
-          <Bell size={18} />
+          <Lightbulb size={18} />
         </NavLink>
       </nav>
 

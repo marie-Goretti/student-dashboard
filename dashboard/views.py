@@ -108,3 +108,15 @@ class AnalyseEtudiantsView(APIView):
     def get(self, request):
         search = request.query_params.get('search')
         return Response(services.get_analyse_etudiants(_extract_filters(request), search=search))
+
+
+class AnalyseRattrapagesView(APIView):
+    """GET /api/dashboard/analyse-rattrapages/"""
+    def get(self, request):
+        return Response(services.get_analyse_rattrapages(_extract_filters(request)))
+
+
+class RecommandationsView(APIView):
+    """GET /api/dashboard/recommandations/"""
+    def get(self, request):
+        return Response(services.get_recommandations(_extract_filters(request)))
