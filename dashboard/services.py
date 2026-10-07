@@ -732,77 +732,285 @@ def get_analyse_rattrapages(filters: dict) -> dict:
     }
 
 
-def get_recommandations(filters: dict) -> list:
+def get_recommandations(filters: dict) -> dict:
     """
-    Recommandations décisionnelles générées à partir des tendances observées dans les données :
-    - Priorité élevée : modules à forte difficulté (ex. Finance, Droit)
-    - Priorité moyenne : écarts anormaux devoirs vs examens
-    - Opportunité : modules à haute performance (ex. Marketing)
+    Recommandations décisionnelles basées sur les données réelles du fichier Excel.
+    Applique STRICTEMENT les règles logiques dans l'ordre de priorité défini :
+    1. Biais de Contrôle Continu (Surévaluation du Devoir) : Note Devoir >= 14.0 ET Note Examen < 8.0
+    2. Cible Prioritaire du Rattrapage (Zone de Reconversion) : 8.0 <= Moyenne < 10.0
+    3. Échec Sévère & Déficit de Prérequis : Moyenne < 8.0 ET Note Devoir < 8.0 ET Note Examen < 8.0 (ou Moyenne < 8.0)
+    4. Déséquilibre par Négligence du Devoir : Note Examen >= 12.0 ET Note Devoir < 8.0 ET Moyenne >= 10.0
+    5. Profil Mentor / Excellence : Note Devoir >= 16.0 ET Note Examen >= 16.0
+    6. Règle par défaut : Progression Normale : Moyenne >= 10.0
     """
-    # Données enrichies et structurées fidèles à la maquette
-    return [
-        {
-            'id': 'rec-1',
+    from collections import Counter
+
+    qs = _apply_filters(FactEvaluation.objects.all(), filters).select_related(
+        'id_etu', 'id_mod', 'id_niv', 'id_annee'
+    )
+
+    RULES_CONFIG = {
+        1: {
+            'id': 'regle-1',
+            'rule_number': 1,
+            'title': 'Biais de Contrôle Continu (Surévaluation du Devoir)',
+            'short_title': 'Biais Contrôle Continu',
             'priority': 'elevee',
             'priority_label': 'Priorité élevée',
             'badge_color': 'red',
-            'title': 'Module Finance — Forte difficulté détectée',
-            'description': 'Le module Finance présente une moyenne de 7,4/20 et un taux de réussite de 39%, largement inférieur au seuil de 60% défini.',
+            'condition': 'Note Devoir ≥ 14.0 ET Note Examen < 8.0',
+            'diagnostic': "L'étudiant s'appuie fortement sur les travaux de groupe ou continus mais échoue aux épreuves individuelles sur table.",
+            'recommandation_principale': "Recommander un entraînement individuel à blanc sous 5 jours. Travailler l'autonomie et la gestion du temps en examen sans aide extérieure.",
             'actions': [
+                "Recommander un entraînement individuel à blanc sous 5 jours",
+                "Travailler l'autonomie et la gestion du temps en examen sans aide extérieure",
                 "Analyser les résultats par type d'évaluation (devoir vs examen)",
                 "Identifier les groupes d'étudiants les plus concernés",
-                "Organiser une séance de renforcement pédagogique",
                 "Suivre l'évolution au prochain contrôle continu",
             ],
-            'impact': "Réduction potentielle du taux d'échec de 15% si les actions sont mises en place.",
+            'impact': "Réduction potentielle du taux d'échec de 15% et sécurisation des épreuves individuelles sur table.",
             'default_open': True,
         },
-        {
-            'id': 'rec-2',
+        2: {
+            'id': 'regle-2',
+            'rule_number': 2,
+            'title': 'Cible Prioritaire du Rattrapage (Zone de Reconversion)',
+            'short_title': 'Cible Rattrapage',
             'priority': 'elevee',
             'priority_label': 'Priorité élevée',
             'badge_color': 'red',
-            'title': 'Module Droit — Intervention urgente requise',
-            'description': 'Le module Droit présente un taux de réussite de 44% et un écart important entre les notes de devoir et d\'examen.',
+            'condition': '8.0 ≤ Moyenne < 10.0',
+            'diagnostic': "L'étudiant est très proche de la validation (moins de 2 points manquants). La réussite au rattrapage est hautement accessible avec un effort ciblé.",
+            'recommandation_principale': "Proposer un plan de révision ciblé uniquement sur les chapitres/sujets où les points ont été perdus à l'examen initial.",
             'actions': [
-                "Revoir les modalités d'évaluation des devoirs et examens",
-                "Mettre en place un soutien méthodologique pour la préparation aux épreuves",
-                "Harmoniser les barèmes de notation entre les différents groupes de TD",
-                "Planifier des ateliers de rédaction juridique hebdomadaires",
+                "Proposer un plan de révision ciblé uniquement sur les chapitres/sujets où les points ont été perdus à l'examen initial",
+                "Convoquer en priorité pour les séances de préparation ciblée au rattrapage",
+                "Fournir les annales et corrigés types avec focus sur les points perdus",
+                "Organiser des sessions de validation par module sous 7 jours",
             ],
-            'impact': "Amélioration attendue du taux de validation de 12 à 18% lors de la session suivante.",
+            'impact': "Taux de conversion estimé à plus de 75% d'admis au rattrapage avec un effort ciblé.",
             'default_open': False,
         },
-        {
-            'id': 'rec-3',
+        3: {
+            'id': 'regle-3',
+            'rule_number': 3,
+            'title': 'Échec Sévère & Déficit de Prérequis',
+            'short_title': 'Échec Sévère & Déficit',
+            'priority': 'elevee',
+            'priority_label': 'Priorité critique',
+            'badge_color': 'red',
+            'condition': 'Moyenne < 8.0 ET Note Devoir < 8.0 ET Note Examen < 8.0',
+            'diagnostic': "Compréhension insuffisante globale de la matière (théorie et pratique).",
+            'recommandation_principale': "Déclencher un soutien prioritaire. Inscrire l'étudiant à un atelier de tutorat intensif de 6 heures avec un étudiant mentor avant les rattrapages.",
+            'actions': [
+                "Déclencher un soutien prioritaire immédiat",
+                "Inscrire l'étudiant à un atelier de tutorat intensif de 6 heures avec un étudiant mentor avant les rattrapages",
+                "Réévaluer les prérequis fondamentaux non acquis de la matière",
+                "Organiser un entretien individuel avec le responsable pédagogique de filière",
+            ],
+            'impact': "Prévention du décrochage définitif et reconstruction des bases académiques indispensables.",
+            'default_open': False,
+        },
+        4: {
+            'id': 'regle-4',
+            'rule_number': 4,
+            'title': 'Déséquilibre par Négligence du Devoir',
+            'short_title': 'Négligence du Devoir',
             'priority': 'moyenne',
             'priority_label': 'Priorité moyenne',
             'badge_color': 'amber',
-            'title': 'Écart important entre devoirs et examens',
-            'description': 'Plusieurs modules présentent des écarts > 3 points entre les résultats de devoirs et les examens finaux, indiquant une préparation insuffisante.',
+            'condition': 'Note Examen ≥ 12.0 ET Note Devoir < 8.0 ET Moyenne ≥ 10.0',
+            'diagnostic': "L'étudiant maîtrise les concepts théoriques lors des examens mais perd des points sur le suivi régulier ou les ateliers rendus.",
+            'recommandation_principale': "Sensibiliser l'étudiant sur la régularité du travail continu et la remise des travaux pratiques pour sécuriser sa moyenne.",
             'actions': [
-                "Aligner le niveau d'exigence des devoirs surveillés sur celui des examens",
-                "Organiser des examens blancs à mi-semestre pour habituer les promotions au format",
-                "Fournir des retours individualisés aux étudiants après chaque évaluation",
-                "Sensibiliser les étudiants à la gestion du temps en examen",
+                "Sensibiliser l'étudiant sur la régularité du travail continu et la remise des travaux pratiques",
+                "Rappeler la pondération déterminante du contrôle continu (40%) sur la mention et le dossier",
+                "Mettre en place un calendrier d'alertes anticipées pour la remise des devoirs",
             ],
-            'impact': "Réduction du décrochage avant les épreuves finales de 20%.",
+            'impact': "Gain estimé de 1.5 à 3 points sur la moyenne générale sans charge de travail supplémentaire à l'examen.",
             'default_open': False,
         },
-        {
-            'id': 'rec-4',
+        5: {
+            'id': 'regle-5',
+            'rule_number': 5,
+            'title': 'Profil Mentor / Excellence',
+            'short_title': 'Profil Mentor / Excellence',
             'priority': 'opportunite',
             'priority_label': 'Opportunité',
             'badge_color': 'blue',
-            'title': 'Module Marketing — Bonnes performances',
-            'description': 'Le module Marketing présente une moyenne de 15,2/20 et un taux de réussite de 91%, bien au-dessus de la moyenne générale.',
+            'condition': 'Note Devoir ≥ 16.0 ET Note Examen ≥ 16.0',
+            'diagnostic': "Maîtrise parfaite et exceptionnelle de l'Unité d'Enseignement.",
+            'recommandation_principale': "Féliciter l'étudiant et lui proposer de devenir tuteur/mentor pour accompagner les étudiants en difficulté sur ce module.",
             'actions': [
-                "Documenter et diffuser les pratiques pédagogiques adoptées dans ce module",
-                "Impliquer les étudiants les plus performants dans un programme de tutorat par les pairs",
-                "Valoriser les méthodes d'évaluation interactives auprès de l'équipe pédagogique",
-                "Explorer l'application de formats pédagogiques similaires sur d'autres matières",
+                "Féliciter l'étudiant et valoriser officiellement ses performances d'excellence",
+                "Lui proposer de devenir tuteur/mentor pour accompagner les étudiants en difficulté sur ce module",
+                "Lui délivrer une attestation académique d'engagement pédagogique",
+                "Mobiliser ces mentors pour animer les ateliers de la Règle 3",
             ],
-            'impact': "Effet d'entraînement positif sur l'ensemble des modules transversaux.",
+            'impact': "Création d'un vivier de tutorat par les pairs à coût nul pour l'établissement et valorisation des talents.",
             'default_open': False,
         },
-    ]
+        6: {
+            'id': 'regle-6',
+            'rule_number': 6,
+            'title': 'Progression Normale',
+            'short_title': 'Progression Normale',
+            'priority': 'normale',
+            'priority_label': 'Progression normale',
+            'badge_color': 'emerald',
+            'condition': 'Moyenne ≥ 10.0 (profil régulier et équilibré)',
+            'diagnostic': "Résultat équilibré et satisfaisant.",
+            'recommandation_principale': "Encourager à maintenir la méthode de travail actuelle.",
+            'actions': [
+                "Encourager à maintenir la méthode de travail actuelle",
+                "Poursuivre la régularité entre travaux personnels et préparation des examens",
+                "Inciter à viser une mention supérieure lors des prochains semestres",
+            ],
+            'impact': "Consolidation de la réussite et maintien d'un taux d'admission général élevé.",
+            'default_open': False,
+        },
+    }
+
+    rule_data = {
+        i: {'count': 0, 'students': set(), 'modules': Counter(), 'sample': []}
+        for i in range(1, 7)
+    }
+
+    total_evaluated = 0
+    all_students_set = set()
+
+    for ev in qs:
+        # Note Devoir ramenée sur 20
+        devoir = (
+            float(ev.note_devoir1)
+            if ev.note_devoir1 is not None
+            else (
+                (float(ev.note_devoir_40) / 0.4)
+                if ev.note_devoir_40 is not None
+                else None
+            )
+        )
+        # Note Examen sur 20
+        exam = (
+            float(ev.note_examen)
+            if ev.note_examen is not None
+            else (
+                (float(ev.note_examen_60) / 0.6)
+                if ev.note_examen_60 is not None
+                else None
+            )
+        )
+        # Moyenne finale sur 20
+        if ev.moyenne is not None:
+            moy = float(ev.moyenne)
+        elif devoir is not None and exam is not None:
+            moy = round(devoir * 0.4 + exam * 0.6, 2)
+        else:
+            moy = exam if exam is not None else devoir
+
+        if exam is None and devoir is None and moy is None:
+            continue
+
+        if devoir is None:
+            devoir = exam if exam is not None else 0.0
+        if exam is None:
+            exam = devoir if devoir is not None else 0.0
+        if moy is None:
+            moy = round(devoir * 0.4 + exam * 0.6, 2)
+
+        total_evaluated += 1
+        if ev.id_etu_id:
+            all_students_set.add(ev.id_etu_id)
+
+        # APPLICATION STRICTE DES 6 RÈGLES DANS L'ORDRE DE PRIORITÉ
+        if devoir >= 14.0 and exam < 8.0:
+            r = 1
+        elif 8.0 <= moy < 10.0:
+            r = 2
+        elif moy < 8.0:
+            r = 3
+        elif exam >= 12.0 and devoir < 8.0 and moy >= 10.0:
+            r = 4
+        elif devoir >= 16.0 and exam >= 16.0:
+            r = 5
+        elif moy >= 10.0:
+            r = 6
+        else:
+            r = 6
+
+        rule_data[r]['count'] += 1
+        if ev.id_etu_id:
+            rule_data[r]['students'].add(ev.id_etu_id)
+
+        mod_name = ev.id_mod.nom_mod.title() if ev.id_mod and ev.id_mod.nom_mod else 'Module'
+        rule_data[r]['modules'][mod_name] += 1
+
+        if len(rule_data[r]['sample']) < 25:
+            nom_etu = f"{ev.id_etu.nom.upper()} {ev.id_etu.prenom.title()}".strip() if ev.id_etu else 'Étudiant'
+            rule_data[r]['sample'].append({
+                'id_eval': ev.id_eval,
+                'matricule': ev.id_etu.matricule if ev.id_etu else '',
+                'etudiant': nom_etu,
+                'module': mod_name,
+                'niveau': ev.id_niv.code_niv if ev.id_niv else '',
+                'note_devoir': round(devoir, 1),
+                'note_examen': round(exam, 1),
+                'moyenne': round(moy, 1),
+                'statut': 'Admis' if moy >= 10.0 else 'Ajourné',
+            })
+
+    # Construction de la liste enrichie des recommandations
+    recommendations_list = []
+    for r_num in range(1, 7):
+        cfg = RULES_CONFIG[r_num]
+        cnt = rule_data[r_num]['count']
+        stu_cnt = len(rule_data[r_num]['students'])
+        pct = round((cnt / total_evaluated) * 100, 1) if total_evaluated > 0 else 0.0
+
+        top_mods = [
+            {'module': m, 'count': c}
+            for m, c in rule_data[r_num]['modules'].most_common(4)
+        ]
+
+        # Description dynamique basée sur les chiffres réels du fichier
+        if cnt > 0:
+            desc = (
+                f"{cfg['diagnostic']} "
+                f"Détecté sur {cnt} évaluation(s) concernant {stu_cnt} étudiant(s) "
+                f"({pct}% des évaluations)."
+            )
+        else:
+            desc = cfg['diagnostic']
+
+        recommendations_list.append({
+            'id': cfg['id'],
+            'rule_number': cfg['rule_number'],
+            'title': cfg['title'],
+            'short_title': cfg['short_title'],
+            'priority': cfg['priority'],
+            'priority_label': cfg['priority_label'],
+            'badge_color': cfg['badge_color'],
+            'condition': cfg['condition'],
+            'diagnostic': cfg['diagnostic'],
+            'description': desc,
+            'recommandation_principale': cfg['recommandation_principale'],
+            'actions': cfg['actions'],
+            'impact': cfg['impact'],
+            'default_open': cfg['default_open'],
+            'count': cnt,
+            'students_count': stu_cnt,
+            'percentage': pct,
+            'top_modules': top_mods,
+            'students_sample': rule_data[r_num]['sample'],
+        })
+
+    return {
+        'summary': {
+            'total_evaluations': total_evaluated,
+            'total_etudiants': len(all_students_set),
+            'regle_counts': {
+                f"r{i}": rule_data[i]['count'] for i in range(1, 7)
+            },
+        },
+        'recommandations': recommendations_list,
+    }
