@@ -72,7 +72,7 @@ export default function DashboardPage() {
       <HeroBanner
         kpi={kpi}
         onAlertClick={() => {
-          setFilters((prev) => ({ ...prev, resultat: 'AJOURNE' }));
+          navigate('/alertes');
         }}
       />
 

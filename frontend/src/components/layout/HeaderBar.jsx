@@ -1,7 +1,11 @@
 import { Search, Bell, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function HeaderBar({ currentAnnee = '2024-2025' }) {
+export default function HeaderBar({
+  title = 'Tableau de bord académique',
+  currentAnnee = '2024-2025',
+  subtitle,
+}) {
   const { user } = useAuth() || {};
 
   return (
@@ -9,10 +13,10 @@ export default function HeaderBar({ currentAnnee = '2024-2025' }) {
       {/* Titre & sous-titre */}
       <div>
         <h1 className="text-2xl md:text-[26px] font-bold text-ink tracking-tight font-sans">
-          Tableau de bord académique
+          {title}
         </h1>
         <p className="text-xs md:text-sm text-ink/50 mt-0.5">
-          Année académique {currentAnnee}
+          {subtitle || `Année académique ${currentAnnee}`}
         </p>
       </div>
 

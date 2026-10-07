@@ -18,7 +18,15 @@ const NIVEAU_LABELS = {
 
 const NIVEAU_ORDER = Object.keys(NIVEAU_LABELS);
 
-export default function FiltersBar({ filters, onChange }) {
+export default function FiltersBar({
+  filters,
+  onChange,
+  showAnnee = true,
+  showProgramme = true,
+  showNiveau = true,
+  showSemestre = true,
+  showModule = true,
+}) {
   const [niveaux, setNiveaux] = useState([]);
   const [modules, setModules] = useState([]);
   const [annees, setAnnees] = useState([]);
@@ -58,83 +66,93 @@ export default function FiltersBar({ filters, onChange }) {
     <div className="bg-white rounded-2xl border border-cream-200 shadow-xs p-3.5 flex items-center justify-between gap-3 flex-wrap mb-6">
       <div className="flex items-center gap-2.5 flex-wrap">
         {/* Année */}
-        <div className={selectContainerClass}>
-          <span className={labelClass}>Année</span>
-          <select
-            className={selectClass}
-            value={filters.id_annee || ''}
-            onChange={(e) => handleChange('id_annee', e.target.value)}
-          >
-            <option value="">2024–2025</option>
-            {annees.map((a) => (
-              <option key={a.id_annee} value={a.id_annee}>
-                {a.annee_academique}
-              </option>
-            ))}
-          </select>
-        </div>
+        {showAnnee && (
+          <div className={selectContainerClass}>
+            <span className={labelClass}>Année</span>
+            <select
+              className={selectClass}
+              value={filters.id_annee || ''}
+              onChange={(e) => handleChange('id_annee', e.target.value)}
+            >
+              <option value="">2024–2025</option>
+              {annees.map((a) => (
+                <option key={a.id_annee} value={a.id_annee}>
+                  {a.annee_academique}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Programme / Filière */}
-        <div className={selectContainerClass}>
-          <span className={labelClass}>Programme</span>
-          <select
-            className={selectClass}
-            value={filters.filiere || ''}
-            onChange={(e) => handleChange('filiere', e.target.value)}
-          >
-            <option value="">Tous</option>
-            <option value="management">Management</option>
-            <option value="si">Système d'Information</option>
-          </select>
-        </div>
+        {showProgramme && (
+          <div className={selectContainerClass}>
+            <span className={labelClass}>Programme</span>
+            <select
+              className={selectClass}
+              value={filters.filiere || ''}
+              onChange={(e) => handleChange('filiere', e.target.value)}
+            >
+              <option value="">Tous</option>
+              <option value="management">Management</option>
+              <option value="si">Système d'Information</option>
+            </select>
+          </div>
+        )}
 
         {/* Niveau */}
-        <div className={selectContainerClass}>
-          <span className={labelClass}>Niveau</span>
-          <select
-            className={selectClass}
-            value={filters.id_niv || ''}
-            onChange={(e) => handleChange('id_niv', e.target.value)}
-          >
-            <option value="">Tous</option>
-            {niveaux.map((n) => (
-              <option key={n.id_niv} value={n.id_niv}>
-                {n.code_niv}
-              </option>
-            ))}
-          </select>
-        </div>
+        {showNiveau && (
+          <div className={selectContainerClass}>
+            <span className={labelClass}>Niveau</span>
+            <select
+              className={selectClass}
+              value={filters.id_niv || ''}
+              onChange={(e) => handleChange('id_niv', e.target.value)}
+            >
+              <option value="">Tous</option>
+              {niveaux.map((n) => (
+                <option key={n.id_niv} value={n.id_niv}>
+                  {n.code_niv}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Semestre */}
-        <div className={selectContainerClass}>
-          <span className={labelClass}>Semestre</span>
-          <select
-            className={selectClass}
-            value={filters.semestre || ''}
-            onChange={(e) => handleChange('semestre', e.target.value)}
-          >
-            <option value="">Tous</option>
-            <option value="S1">Semestre 1</option>
-            <option value="S2">Semestre 2</option>
-          </select>
-        </div>
+        {showSemestre && (
+          <div className={selectContainerClass}>
+            <span className={labelClass}>Semestre</span>
+            <select
+              className={selectClass}
+              value={filters.semestre || ''}
+              onChange={(e) => handleChange('semestre', e.target.value)}
+            >
+              <option value="">Tous</option>
+              <option value="S1">Semestre 1</option>
+              <option value="S2">Semestre 2</option>
+            </select>
+          </div>
+        )}
 
         {/* Module */}
-        <div className={selectContainerClass}>
-          <span className={labelClass}>Module</span>
-          <select
-            className={`${selectClass} max-w-[140px] truncate`}
-            value={filters.id_mod || ''}
-            onChange={(e) => handleChange('id_mod', e.target.value)}
-          >
-            <option value="">Tous</option>
-            {modules.map((m) => (
-              <option key={m.id_mod} value={m.id_mod}>
-                {m.nom_mod}
-              </option>
-            ))}
-          </select>
-        </div>
+        {showModule && (
+          <div className={selectContainerClass}>
+            <span className={labelClass}>Module</span>
+            <select
+              className={`${selectClass} max-w-[140px] truncate`}
+              value={filters.id_mod || ''}
+              onChange={(e) => handleChange('id_mod', e.target.value)}
+            >
+              <option value="">Tous</option>
+              {modules.map((m) => (
+                <option key={m.id_mod} value={m.id_mod}>
+                  {m.nom_mod}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Bouton Réinitialiser */}

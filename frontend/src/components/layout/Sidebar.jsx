@@ -1,6 +1,6 @@
 import {
   Zap,
-  Home,
+  Upload,
   LayoutGrid,
   Layers,
   BookOpen,
@@ -27,12 +27,12 @@ export default function Sidebar() {
         <Zap size={20} className="fill-white" />
       </NavLink>
 
-      {/* 2. Au milieu : Accueil (Import), Tableau de bord, Niveaux, Modules, Étudiants, Rattrapages, Alertes */}
+      {/* 2. Au milieu : Import, Tableau de bord, Niveaux, Modules, Étudiants, Rattrapages, Alertes */}
       <nav className="flex-1 flex flex-col items-center gap-2.5">
-        {/* L'accueil (qui permet d'importer nos données) */}
+        {/* Import (qui permet d'importer nos données) */}
         <NavLink
           to="/import"
-          title="Accueil — Import de données"
+          title="Import"
           className={({ isActive }) =>
             `w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
               isActive
@@ -41,7 +41,7 @@ export default function Sidebar() {
             }`
           }
         >
-          <Home size={18} />
+          <Upload size={18} />
         </NavLink>
 
         {/* Le tableau de bord */}

@@ -51,3 +51,20 @@ export const getPointsCles = async (filters = {}) => {
   const { data } = await axiosClient.get('/dashboard/points-cles/', { params: filters });
   return data;
 };
+
+export const getAnalyseNiveaux = async (filters = {}) => {
+  const { data } = await axiosClient.get('/dashboard/analyse-niveaux/', { params: filters });
+  return data;
+};
+
+export const getAnalyseModules = async (filters = {}) => {
+  const { data } = await axiosClient.get('/dashboard/analyse-modules/', { params: filters });
+  return data;
+};
+
+export const getAnalyseEtudiants = async (filters = {}, search = '') => {
+  const params = { ...filters };
+  if (search) params.search = search;
+  const { data } = await axiosClient.get('/dashboard/analyse-etudiants/', { params });
+  return data;
+};

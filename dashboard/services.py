@@ -435,3 +435,162 @@ def get_student_modules_detail(id_etu) -> list:
             'resultat_rattrapage': ev.resultat_rattrapage,
         })
     return result
+
+
+def get_analyse_niveaux(filters: dict) -> list:
+    """
+    Vue détaillée pour la page 'Analyse des niveaux' :
+    Tableau complet avec Niveau, Étudiants, Moyenne générale,
+    Taux de réussite, Taux d'échec, Rattrapages, et Niveau de risque.
+    """
+    qs = _apply_filters(FactEvaluation.objects.all(), filters)
+    qs = qs.exclude(id_niv__code_niv__isnull=True).exclude(id_niv__code_niv='NAN')
+    data = (
+        qs.values('id_niv__code_niv')
+        .annotate(
+            avg_moyenne=Avg('moyenne'),
+            total=Count('id_eval'),
+            admis=Count('id_eval', filter=Q(resultat=ResultatChoices.ADMIS)),
+            etudiants=Count('id_etu', distinct=True),
+            rattrapages=Count('id_eval', filter=Q(note_rattrapage__isnull=False) | Q(moyenne__lt=10)),
+        )
+        .order_by('-avg_moyenne')
+    )
+    result = []
+    for row in data:
+        tot = row['total']
+        adm = row['admis']
+        taux_reussite = round((adm / tot) * 100, 1) if tot > 0 else 0.0
+        taux_echec = round(100.0 - taux_reussite, 1)
+        if taux_reussite >= 72.0:
+            risque = 'Faible'
+        elif taux_reussite >= 65.0:
+            risque = 'Moyen'
+        elif taux_reussite >= 55.0:
+            risque = 'Élevé'
+        else:
+            risque = 'Critique'
+
+        result.append({
+            'niveau': row['id_niv__code_niv'],
+            'etudiants': row['etudiants'],
+            'moyenne': round(float(row['avg_moyenne']), 2) if row['avg_moyenne'] is not None else None,
+            'taux_reussite': taux_reussite,
+            'taux_echec': taux_echec,
+            'rattrapages': row['rattrapages'],
+            'risque': risque,
+        })
+    return result
+
+
+def get_analyse_modules(filters: dict) -> dict:
+    """
+    Vue détaillée pour la page 'Analyse des modules' :
+    - top_modules : les modules les plus performants (moyenne haute, taux réussite élevé)
+    - attention_modules : modules nécessitant une attention (taux échec élevé, moyenne faible)
+    """
+    qs = _apply_filters(FactEvaluation.objects.all(), filters)
+    qs = qs.exclude(id_mod__nom_mod__isnull=True).exclude(id_mod__nom_mod='NAN').exclude(moyenne__isnull=True)
+    data = (
+        qs.values('id_mod__nom_mod')
+        .annotate(
+            avg_moyenne=Avg('moyenne'),
+            total=Count('id_eval'),
+            admis=Count('id_eval', filter=Q(resultat=ResultatChoices.ADMIS)),
+            etudiants=Count('id_etu', distinct=True),
+        )
+    )
+
+    modules_stats = []
+    for row in data:
+        if row['total'] < 3:
+            continue
+        tot = row['total']
+        adm = row['admis']
+        taux_reussite = round((adm / tot) * 100) if tot > 0 else 0
+        taux_echec = 100 - taux_reussite
+        moy = round(float(row['avg_moyenne']), 1)
+        risque = 'Élevé' if taux_echec >= 55 or moy < 9.0 else ('Moyen' if taux_echec >= 40 or moy < 11.0 else 'Faible')
+
+        modules_stats.append({
+            'module': row['id_mod__nom_mod'],
+            'moyenne': moy,
+            'taux_reussite': taux_reussite,
+            'taux_echec': taux_echec,
+            'etudiants': row['etudiants'],
+            'risque': risque,
+        })
+
+    sorted_top = sorted(modules_stats, key=lambda x: (x['moyenne'], x['taux_reussite']), reverse=True)[:5]
+    sorted_attention = sorted(modules_stats, key=lambda x: (x['moyenne'], -x['taux_echec']))[:5]
+
+    return {
+        'top_modules': sorted_top,
+        'attention_modules': sorted_attention,
+    }
+
+
+def get_analyse_etudiants(filters: dict, search: str = None) -> list:
+    """
+    Liste des étudiants pour la page 'Étudiants' avec les indicateurs calculés :
+    nom, prénom, initiales, matricule, niveau, moyenne, modules validés, en difficulté, rattrapage, statut.
+    """
+    qs = _apply_filters(FactEvaluation.objects.all(), filters)
+    qs = qs.exclude(id_etu__isnull=True).exclude(id_niv__code_niv='NAN')
+
+    if search:
+        s = search.strip()
+        qs = qs.filter(
+            Q(id_etu__nom__icontains=s) |
+            Q(id_etu__prenom__icontains=s) |
+            Q(id_etu__matricule__icontains=s)
+        )
+
+    data = (
+        qs.values('id_etu', 'id_etu__matricule', 'id_etu__nom', 'id_etu__prenom', 'id_niv__code_niv')
+        .annotate(
+            avg_moyenne=Avg('moyenne'),
+            total=Count('id_eval'),
+            modules_valides=Count('id_eval', filter=Q(moyenne__gte=10)),
+            en_difficulte=Count('id_eval', filter=Q(moyenne__lt=10)),
+            rattrapages=Count('id_eval', filter=Q(note_rattrapage__isnull=False) | Q(moyenne__lt=10)),
+        )
+        .order_by('id_etu__nom', 'id_etu__prenom')
+    )
+
+    result = []
+    seen_students = set()
+    for row in data:
+        id_etu = row['id_etu']
+        if id_etu in seen_students:
+            continue
+        seen_students.add(id_etu)
+
+        nom = (row['id_etu__nom'] or '').strip()
+        prenom = (row['id_etu__prenom'] or '').strip()
+        nom_complet = f"{nom.upper()} {prenom.title()}".strip()
+        ini1 = nom[0].upper() if nom else 'E'
+        ini2 = prenom[0].upper() if prenom else ''
+        initiales = f"{ini1}{ini2}"
+
+        moy = round(float(row['avg_moyenne']), 1) if row['avg_moyenne'] is not None else 0.0
+        en_diff = row['en_difficulte']
+        has_rattrapage = row['rattrapages'] > 0
+        statut = 'Admis' if moy >= 10.0 else 'Refusé'
+
+        result.append({
+            'id_etu': id_etu,
+            'matricule': row['id_etu__matricule'],
+            'nom': nom,
+            'prenom': prenom,
+            'nom_complet': nom_complet,
+            'initiales': initiales,
+            'niveau': row['id_niv__code_niv'],
+            'moyenne': moy,
+            'modules_valides': row['modules_valides'],
+            'en_difficulte': en_diff,
+            'rattrapage': 'Oui' if has_rattrapage else 'Non',
+            'statut': statut,
+        })
+
+    return result
