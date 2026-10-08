@@ -137,7 +137,13 @@ def execute_auto_import(file_obj) -> dict:
         raise GradeImportError(f"Format de fichier non lisible : {e}")
 
     # Détection de la feuille Notes
-    is_grades = any('SUIVI' in s.upper() and 'NOTE' in s.upper() for s in sheet_names)
+    grades_sheet = None
+    for s in sheet_names:
+        if 'SUIVI' in s.upper() and 'NOTE' in s.upper():
+            grades_sheet = s
+            break
+
+    is_grades = grades_sheet is not None
 
     if not is_grades and len(sheet_names) == 1:
         try:
@@ -145,17 +151,20 @@ def execute_auto_import(file_obj) -> dict:
             cols_str = ' '.join([str(c).upper() for c in df_test.columns])
             if any(sig in cols_str for sig in ['DEVOIR', 'EXAMEN', 'MOYENNE', 'RATTRAPAGE', 'SEMESTRE', 'MODULE']):
                 is_grades = True
+                grades_sheet = sheet_names[0]
             elif 'MATRICULE' in cols_str and 'NOM' in cols_str:
                 is_grades = False
         except Exception:
             is_grades = True
+            grades_sheet = sheet_names[0]
 
     file_obj.seek(0)
     if is_grades:
-        report = import_grades_file(file_obj)
+        report = import_grades_file(file_obj, sheet_name=grades_sheet)
+        libelle = f"Suivi des Notes & Évaluations ({grades_sheet})" if grades_sheet else "Suivi des Notes & Évaluations"
         return {
             'target': 'grades',
-            'type_libelle': 'Suivi des Notes & Évaluations',
+            'type_libelle': libelle,
             'report': report,
         }
     else:

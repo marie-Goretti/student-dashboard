@@ -42,9 +42,32 @@ class GradeImportError(Exception):
     pass
 
 
-# Nom de la feuille à importer. Les autres feuilles (PV, rattrapages
-# détaillés par module) sont ignorées.
-SHEET_NAME = "SUIVI NOTES 2024-2025"
+# Nom de feuille par défaut (pour référence / rétro-compatibilité)
+DEFAULT_SHEET_NAME = "SUIVI NOTES 2024-2025"
+
+
+def detect_grades_sheet_name(sheet_names: list) -> str:
+    """
+    Détecte automatiquement le nom de la feuille de suivi des notes,
+    quelle que soit l'année académique (ex: 2024-2025, 2023-2024, etc.).
+    """
+    # 1. Correspondance exacte ou partielle avec SUIVI et NOTE
+    for s in sheet_names:
+        norm = _strip_accents(str(s)).upper()
+        if "SUIVI" in norm and "NOTE" in norm:
+            return s
+
+    # 2. Correspondance avec SUIVI ou NOTE ou EVAL
+    for s in sheet_names:
+        norm = _strip_accents(str(s)).upper()
+        if any(w in norm for w in ["SUIVI", "NOTE", "EVAL"]):
+            return s
+
+    # 3. Première feuille par défaut si existante
+    if sheet_names:
+        return sheet_names[0]
+
+    raise GradeImportError("Le fichier Excel ne contient aucune feuille.")
 
 # Nombre de lignes à sauter avant la ligne d'en-tête réelle (titre +
 # lignes vides). La ligne d'en-tête est donc la 5e ligne du fichier.
@@ -257,24 +280,26 @@ def _clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 @transaction.atomic
-def import_grades_file(file_obj) -> dict:
+def import_grades_file(file_obj, sheet_name: str = None) -> dict:
     """
-    Importe la feuille "SUIVI NOTES 2024-2025" du fichier de notes,
+    Importe la feuille de suivi des notes (détectée automatiquement ou spécifiée),
     avec matching des étudiants par NOM+PRENOM (le matricule de ce
     fichier n'étant pas fiable), création dynamique des dimensions et
     upsert atomique dans fact_evaluation.
     """
     try:
+        excel_file = pd.ExcelFile(file_obj, engine="openpyxl")
+        target_sheet = sheet_name or detect_grades_sheet_name(excel_file.sheet_names)
         df = pd.read_excel(
-            file_obj,
-            sheet_name=SHEET_NAME,
+            excel_file,
+            sheet_name=target_sheet,
             header=None,
             skiprows=HEADER_SKIP_ROWS,
-            engine="openpyxl",
         )
     except ValueError as e:
+        target = sheet_name or "de suivi des notes"
         raise GradeImportError(
-            f"Feuille '{SHEET_NAME}' introuvable dans le fichier : {e}"
+            f"Feuille '{target}' introuvable dans le fichier : {e}"
         )
     except Exception as e:
         raise GradeImportError(f"Impossible de lire le fichier Excel : {e}")
@@ -286,6 +311,7 @@ def import_grades_file(file_obj) -> dict:
     report = {
         "created": 0, "updated": 0, "errors": [], "total": len(df),
         "etudiants_introuvables": 0, "etudiants_ambigus": 0,
+        "etudiants_auto_crees": 0,
     }
 
     for idx, row in df.iterrows():
@@ -311,16 +337,44 @@ def import_grades_file(file_obj) -> dict:
 
             etudiant = student_lookup.get(key)
             if etudiant is None:
-                report["errors"].append({
-                    "ligne": ligne_excel,
-                    "matricule": "N/A",
-                    "erreur": (
-                        f"Étudiant '{nom_source} {prenom_source}' introuvable — "
-                        "importer d'abord le fichier master étudiants."
-                    ),
-                })
-                report["etudiants_introuvables"] += 1
-                continue
+                # Si l'étudiant n'est pas encore présent dans dim_etudiant
+                # (ex: fichier d'une autre année académique dont le master n'a pas encore été injecté),
+                # on le crée automatiquement pour intégrer ses notes et évaluations.
+                nom_clean = str(nom_source or "").strip().upper()
+                prenom_clean = str(prenom_source or "").strip()
+                if nom_clean and prenom_clean:
+                    mat_raw = str(row.get("matricule_source") or "").strip().upper()
+                    if mat_raw and mat_raw not in ("NAN", "NONE", "N/A", ""):
+                        candidate_mat = mat_raw
+                    else:
+                        candidate_mat = f"ETU_{_normalize_name(nom_clean)[:3]}_{random.randint(1000, 9999)}"
+
+                    final_mat = candidate_mat
+                    suffix = 1
+                    while DimEtudiant.objects.filter(matricule=final_mat).exists():
+                        final_mat = f"{candidate_mat}_{suffix}"
+                        suffix += 1
+
+                    etudiant = DimEtudiant.objects.create(
+                        matricule=final_mat,
+                        nom=nom_clean,
+                        prenom=prenom_clean,
+                        mail=str(row.get("mail") or "").strip() if pd.notna(row.get("mail")) else None,
+                        annee_souscription=str(row.get("annee_souscription") or "").strip() if pd.notna(row.get("annee_souscription")) else None,
+                    )
+                    student_lookup[key] = etudiant
+                    report["etudiants_auto_crees"] += 1
+                else:
+                    report["errors"].append({
+                        "ligne": ligne_excel,
+                        "matricule": "N/A",
+                        "erreur": (
+                            f"Étudiant '{nom_source} {prenom_source}' introuvable — "
+                            "importer d'abord le fichier master étudiants."
+                        ),
+                    })
+                    report["etudiants_introuvables"] += 1
+                    continue
 
             # --- Mise à jour annee_souscription si absente ---
             annee_souscription = row.get("annee_souscription")
