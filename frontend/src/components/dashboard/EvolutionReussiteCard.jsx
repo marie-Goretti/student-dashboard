@@ -45,9 +45,6 @@ export default function EvolutionReussiteCard({ data, currentPeriod = '2024-2025
             Comparaison des moyennes générales sur 20 par année
           </p>
         </div>
-        <span className="text-xs font-semibold text-navy-700 bg-navy-50 border border-navy-100 rounded-full px-3 py-1">
-          Barème / 20
-        </span>
       </div>
 
       {/* Graphique linéaire (Line / Area chart) */}
