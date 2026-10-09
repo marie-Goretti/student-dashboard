@@ -5,6 +5,8 @@ from academics.models import FactEvaluation, ResultatChoices
 
 def _apply_filters(queryset, filters: dict):
     """Applique les filtres optionnels niveau / module / année / filiere / semestre / resultat."""
+    if not filters:
+        return queryset
     if filters.get('id_niv'):
         queryset = queryset.filter(id_niv=filters['id_niv'])
     if filters.get('id_mod'):
@@ -18,7 +20,10 @@ def _apply_filters(queryset, filters: dict):
         elif f in ['si', 'systeme_information', 'système d\'information', 'système information']:
             queryset = queryset.filter(id_niv__code_niv__in=['B1SI', 'B2SI', 'B3SI', 'M1SI', 'M2SI'])
     if filters.get('semestre'):
-        queryset = queryset.filter(id_mod__semestre=filters['semestre'])
+        sem = str(filters['semestre']).strip()
+        sem_num = sem.upper().replace('SEMESTRE', '').replace('S', '').strip()
+        sem_variants = [sem, sem_num, f"S{sem_num}", f"Semestre {sem_num}"]
+        queryset = queryset.filter(id_mod__semestre__in=sem_variants)
     if filters.get('resultat'):
         queryset = queryset.filter(resultat=filters['resultat'])
     return queryset
@@ -370,11 +375,13 @@ def get_points_cles(filters: dict) -> list:
 # Dashboard individuel d'un étudiant (fiche étudiant)
 # ---------------------------------------------------------------------------
 
-def get_student_kpi(id_etu) -> dict:
+def get_student_kpi(id_etu, filters: dict = None) -> dict:
     """KPIs propres à UN étudiant : nb de modules évalués, sa moyenne
-    générale sur l'ensemble de son parcours, son taux de réussite
+    générale sur la période sélectionnée, son taux de réussite
     personnel, et le nombre de fois où il est passé en rattrapage."""
     qs = FactEvaluation.objects.filter(id_etu=id_etu)
+    if filters:
+        qs = _apply_filters(qs, filters)
 
     total_modules = qs.count()
     admis = qs.filter(resultat=ResultatChoices.ADMIS).count()
@@ -415,29 +422,76 @@ def get_student_evolution(id_etu) -> list:
     return result
 
 
-def get_student_modules_detail(id_etu) -> list:
+def get_student_modules_detail(id_etu, filters: dict = None) -> list:
     """Détail de toutes les évaluations de l'étudiant, module par module
     (pour le tableau du relevé de notes dans la fiche étudiant)."""
     qs = (
         FactEvaluation.objects.filter(id_etu=id_etu)
         .select_related('id_mod', 'id_niv', 'id_annee')
-        .order_by('id_annee__annee_academique', 'id_mod__nom_mod')
+        .order_by('id_annee__annee_academique', 'id_mod__semestre', 'id_mod__nom_mod')
     )
+    if filters:
+        qs = _apply_filters(qs, filters)
+
     result = []
     for ev in qs:
+        # Note devoir brute (/20)
+        devoirs = [n for n in [ev.note_devoir1, ev.note_devoir2, ev.note_devoir3, ev.note_devoir4] if n is not None]
+        if devoirs:
+            note_devoir = round(float(sum(devoirs) / len(devoirs)), 2)
+        elif ev.note_devoir_40 is not None:
+            note_devoir = round(float(ev.note_devoir_40) / 0.4, 2)
+        else:
+            note_devoir = None
+
+        # Note examen brute (/20)
+        if ev.note_examen is not None:
+            note_examen = round(float(ev.note_examen), 2)
+        elif ev.note_examen_60 is not None:
+            note_examen = round(float(ev.note_examen_60) / 0.6, 2)
+        else:
+            note_examen = None
+
         result.append({
             'module': ev.id_mod.nom_mod,
+            'code_mod': ev.id_mod.code_mod,
             'semestre': ev.id_mod.semestre,
             'niveau': ev.id_niv.code_niv,
+            'id_annee': ev.id_annee_id,
             'annee': ev.id_annee.annee_academique,
+            'note_devoir': note_devoir,
+            'note_examen': note_examen,
             'note_devoir_40': ev.note_devoir_40,
             'note_examen_60': ev.note_examen_60,
             'moyenne': ev.moyenne,
             'resultat': ev.resultat,
             'note_rattrapage': ev.note_rattrapage,
+            'moyenne_rattrapage': ev.moyenne_rattrapage,
             'resultat_rattrapage': ev.resultat_rattrapage,
         })
     return result
+
+
+def get_student_annees(id_etu) -> list:
+    """Liste des années académiques distinctes pour cet étudiant."""
+    return list(
+        FactEvaluation.objects.filter(id_etu=id_etu)
+        .exclude(id_annee__annee_academique__in=['nan', 'None', '', None])
+        .values('id_annee', 'id_annee__annee_academique')
+        .distinct()
+        .order_by('-id_annee__annee_academique')
+    )
+
+
+def get_student_semestres(id_etu) -> list:
+    """Liste des semestres distincts pour cet étudiant."""
+    return list(
+        FactEvaluation.objects.filter(id_etu=id_etu)
+        .exclude(id_mod__semestre__isnull=True)
+        .values_list('id_mod__semestre', flat=True)
+        .distinct()
+        .order_by('id_mod__semestre')
+    )
 
 
 def get_analyse_niveaux(filters: dict) -> list:
@@ -605,7 +659,7 @@ def get_analyse_rattrapages(filters: dict) -> dict:
     - kpis : Étudiants concernés, Modules concernés, Taux de réussite, Taux d'échec
     - synthese : Moyenne avant, Gain moyen, Moyenne après
     - par_niveau : Répartition comparée Avant / Après par niveau
-    - etudiants : Tableau détaillé des étudiants en rattrapage
+    - etudiants : Tableau détaillé des évaluations passées en rattrapage (données réelles)
     """
     qs = _apply_filters(FactEvaluation.objects.all(), filters)
     qs_rat = qs.filter(note_rattrapage__isnull=False)
@@ -623,100 +677,93 @@ def get_analyse_rattrapages(filters: dict) -> dict:
 
         avg_before = qs_rat.aggregate(avg=Avg('moyenne'))['avg']
         avg_after = qs_rat.aggregate(avg=Avg('moyenne_rattrapage'))['avg']
-        moyenne_avant = round(float(avg_before), 1) if avg_before is not None else 7.8
-        moyenne_apres = round(float(avg_after), 1) if avg_after is not None else 11.2
+        moyenne_avant = round(float(avg_before), 1) if avg_before is not None else 0.0
+        moyenne_apres = round(float(avg_after), 1) if avg_after is not None else 0.0
         gain_moyen = round(moyenne_apres - moyenne_avant, 1)
 
-        # Graphique Avant / Après par niveau
-        niveau_order = ['B2SI', 'M1SI', 'M2M', 'M1M', 'B1M', 'B1SI', 'B2M', 'B3M', 'B3SI', 'M2SI']
+        # Graphique Avant / Après par niveau (réel)
         niveau_stats = (
-            qs_rat.exclude(id_niv__code_niv='NAN')
+            qs_rat.exclude(id_niv__code_niv__in=['NAN', '', None])
+            .exclude(id_niv__code_niv__isnull=True)
             .values('id_niv__code_niv')
             .annotate(
                 avg_before=Avg('moyenne'),
                 avg_after=Avg('moyenne_rattrapage'),
                 total=Count('id_eval')
             )
+            .order_by('-total')
         )
-        stats_map = {row['id_niv__code_niv']: row for row in niveau_stats}
 
         par_niveau = []
-        # On priorise les niveaux clés du mockup B2SI, M1SI, M2M, M1M puis les autres
-        displayed_niveaux = [n for n in ['B2SI', 'M1SI', 'M2M', 'M1M'] if n in stats_map] or list(stats_map.keys())[:4]
-        for niv_code in displayed_niveaux:
-            st = stats_map.get(niv_code)
-            if st:
-                b_val = round(float(st['avg_before']), 1) if st['avg_before'] is not None else 7.0
-                a_val = round(float(st['avg_after']), 1) if st['avg_after'] is not None else 10.5
-                par_niveau.append({
-                    'niveau': niv_code,
-                    'avant': b_val,
-                    'apres': a_val,
-                    'gain': round(a_val - b_val, 1),
-                })
+        for st in niveau_stats:
+            niv_code = st['id_niv__code_niv']
+            b_val = round(float(st['avg_before']), 1) if st['avg_before'] is not None else 0.0
+            a_val = round(float(st['avg_after']), 1) if st['avg_after'] is not None else 0.0
+            par_niveau.append({
+                'niveau': niv_code,
+                'avant': b_val,
+                'apres': a_val,
+                'gain': round(a_val - b_val, 1),
+                'total': st['total'],
+            })
 
-        # Si trop peu de niveaux trouvés, on assure un affichage représentatif
-        if len(par_niveau) < 2:
-            par_niveau = [
-                {'niveau': 'B2SI', 'avant': 7.6, 'apres': 11.4, 'gain': 3.8},
-                {'niveau': 'M1SI', 'avant': 7.2, 'apres': 11.1, 'gain': 3.9},
-                {'niveau': 'M2M', 'avant': 6.8, 'apres': 9.8, 'gain': 3.0},
-                {'niveau': 'M1M', 'avant': 7.5, 'apres': 10.9, 'gain': 3.4},
-            ]
-
-        # Tableau des étudiants
+        # Tableau des étudiants basé à 100% sur les données réelles
         rows = (
-            qs_rat.select_related('id_etu', 'id_mod')
-            .order_by('-id_eval')[:80]
+            qs_rat.select_related('id_etu', 'id_mod', 'id_niv', 'id_annee')
+            .order_by('-id_eval')
         )
         etudiants_list = []
-        for ev in rows:
+        for ev in rows[:1000]:
             nom = (ev.id_etu.nom or '').strip()
             prenom = (ev.id_etu.prenom or '').strip()
-            avant_val = round(float(ev.moyenne), 1) if ev.moyenne is not None else 6.0
+            nom_affiche = f"{nom.upper()} {prenom.title()}".strip() if (nom or prenom) else ev.id_etu.matricule
+
+            avant_val = (
+                round(float(ev.moyenne), 1)
+                if ev.moyenne is not None
+                else (round(float(ev.note_examen), 1) if ev.note_examen is not None else None)
+            )
             apres_val = (
                 round(float(ev.moyenne_rattrapage), 1)
                 if ev.moyenne_rattrapage is not None
-                else (round(float(ev.note_rattrapage), 1) if ev.note_rattrapage is not None else 10.0)
+                else (round(float(ev.note_rattrapage), 1) if ev.note_rattrapage is not None else None)
             )
-            diff = round(apres_val - avant_val, 1)
-            is_adm = (apres_val >= 10.0) or (ev.resultat_rattrapage == ResultatChoices.ADMIS)
+            diff = (
+                round(apres_val - avant_val, 1)
+                if (apres_val is not None and avant_val is not None)
+                else None
+            )
+            is_adm = (
+                (apres_val is not None and apres_val >= 10.0)
+                or (ev.resultat_rattrapage == ResultatChoices.ADMIS)
+            )
+
             etudiants_list.append({
                 'id_eval': ev.id_eval,
-                'etudiant': f"{nom.upper()} {prenom.title()}".strip(),
-                'module': ev.id_mod.nom_mod.title() if ev.id_mod.nom_mod else 'Module',
-                'avant': avant_val,
-                'apres': apres_val,
-                'evolution': f"+{diff}" if diff > 0 else f"{diff}",
+                'id_etu': ev.id_etu_id,
+                'matricule': ev.id_etu.matricule,
+                'etudiant': nom_affiche,
+                'module': ev.id_mod.nom_mod if ev.id_mod.nom_mod else 'Module',
+                'code_mod': ev.id_mod.code_mod,
+                'niveau': ev.id_niv.code_niv if ev.id_niv else '',
+                'annee': ev.id_annee.annee_academique if ev.id_annee else '',
+                'avant': avant_val if avant_val is not None else 0.0,
+                'apres': apres_val if apres_val is not None else 0.0,
+                'note_rattrapage': float(ev.note_rattrapage) if ev.note_rattrapage is not None else None,
+                'evolution': f"+{diff}" if (diff is not None and diff > 0) else (str(diff) if diff is not None else '—'),
                 'resultat': 'Admis' if is_adm else 'Refusé',
             })
     else:
-        # Fallback de référence conforme à la maquette
-        etudiants_concernes = 1245
-        modules_concernes = 68
-        taux_reussite = 62.3
-        taux_echec = 37.7
-        moyenne_avant = 7.8
-        gain_moyen = 3.4
-        moyenne_apres = 11.2
-
-        par_niveau = [
-            {'niveau': 'B2SI', 'avant': 7.6, 'apres': 11.4, 'gain': 3.8},
-            {'niveau': 'M1SI', 'avant': 7.2, 'apres': 11.1, 'gain': 3.9},
-            {'niveau': 'M2M', 'avant': 6.8, 'apres': 9.8, 'gain': 3.0},
-            {'niveau': 'M1M', 'avant': 7.5, 'apres': 10.9, 'gain': 3.4},
-        ]
-
-        etudiants_list = [
-            {'id_eval': 1, 'etudiant': 'KODJO Samuel', 'module': 'Finance', 'avant': 6.2, 'apres': 11.5, 'evolution': '+5.3', 'resultat': 'Admis'},
-            {'id_eval': 2, 'etudiant': 'ADJAHO Marie', 'module': 'Droit', 'avant': 6.1, 'apres': 12.0, 'evolution': '+5.9', 'resultat': 'Admis'},
-            {'id_eval': 3, 'etudiant': 'GBEDE Kani', 'module': 'Comptabilité', 'avant': 7.4, 'apres': 10.8, 'evolution': '+3.4', 'resultat': 'Admis'},
-            {'id_eval': 4, 'etudiant': 'TOHALLA Ahoué', 'module': 'Marketing', 'avant': 5.8, 'apres': 9.7, 'evolution': '+3.9', 'resultat': 'Refusé'},
-            {'id_eval': 5, 'etudiant': 'MENSAH Flora', 'module': 'Finance', 'avant': 7.0, 'apres': 13.2, 'evolution': '+6.2', 'resultat': 'Admis'},
-            {'id_eval': 6, 'etudiant': 'DOSSOU Patrick', 'module': 'Mathématiques', 'avant': 4.5, 'apres': 7.8, 'evolution': '+3.3', 'resultat': 'Refusé'},
-            {'id_eval': 7, 'etudiant': 'HOUNTO Edwige', 'module': 'Droit', 'avant': 3.8, 'apres': 8.9, 'evolution': '+5.1', 'resultat': 'Refusé'},
-            {'id_eval': 8, 'etudiant': 'SOKPOH René', 'module': 'Comptabilité', 'avant': 8.2, 'apres': 11.5, 'evolution': '+3.3', 'resultat': 'Admis'},
-        ]
+        # Aucun résultat pour ces filtres : on renvoie des valeurs neutres vides, pas de faux mocks
+        etudiants_concernes = 0
+        modules_concernes = 0
+        taux_reussite = 0.0
+        taux_echec = 0.0
+        moyenne_avant = 0.0
+        gain_moyen = 0.0
+        moyenne_apres = 0.0
+        par_niveau = []
+        etudiants_list = []
 
     return {
         'kpi': {

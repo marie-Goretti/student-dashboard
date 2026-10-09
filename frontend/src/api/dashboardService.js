@@ -25,8 +25,8 @@ export const getDistributionNotes = async (filters = {}) => {
   return data;
 };
 
-export const getStudentDashboard = async (idEtu) => {
-  const { data } = await axiosClient.get(`/dashboard/student/${idEtu}/`);
+export const getStudentDashboard = async (idEtu, filters = {}) => {
+  const { data } = await axiosClient.get(`/dashboard/student/${idEtu}/`, { params: filters });
   return data;
 };
 

@@ -26,6 +26,7 @@ export default function FiltersBar({
   showNiveau = true,
   showSemestre = true,
   showModule = true,
+  defaultLatestAnnee = false,
 }) {
   const [niveaux, setNiveaux] = useState([]);
   const [modules, setModules] = useState([]);
@@ -50,6 +51,9 @@ export default function FiltersBar({
         .filter((a) => a.annee_academique && a.annee_academique !== 'nan' && a.annee_academique !== 'None')
         .sort((a, b) => String(b.annee_academique).localeCompare(String(a.annee_academique)));
       setAnnees(list);
+      if (defaultLatestAnnee && list.length > 0 && filters.id_annee === undefined) {
+        onChange({ ...filters, id_annee: list[0].id_annee });
+      }
     });
   }, []);
 
@@ -57,7 +61,16 @@ export default function FiltersBar({
     onChange({ ...filters, [key]: value || undefined });
   };
 
-  const hasActiveFilters = Object.values(filters).some((v) => v !== undefined && v !== '');
+  const latestAnneeId = annees[0]?.id_annee;
+  const hasActiveFilters = defaultLatestAnnee
+    ? Boolean(
+        filters.id_niv ||
+        filters.filiere ||
+        filters.semestre ||
+        filters.id_mod ||
+        (latestAnneeId !== undefined && filters.id_annee !== undefined && String(filters.id_annee) !== String(latestAnneeId))
+      )
+    : Object.values(filters).some((v) => v !== undefined && v !== '');
 
   const selectContainerClass =
     'flex items-center gap-1.5 bg-white border border-cream-200 rounded-xl px-3 py-1.5 shadow-xs text-xs';
@@ -127,12 +140,12 @@ export default function FiltersBar({
             <span className={labelClass}>Semestre</span>
             <select
               className={selectClass}
-              value={filters.semestre || ''}
+              value={filters.semestre === 'S1' ? '1' : filters.semestre === 'S2' ? '2' : (filters.semestre || '')}
               onChange={(e) => handleChange('semestre', e.target.value)}
             >
               <option value="">Tous</option>
-              <option value="S1">Semestre 1</option>
-              <option value="S2">Semestre 2</option>
+              <option value="1">Semestre 1</option>
+              <option value="2">Semestre 2</option>
             </select>
           </div>
         )}
@@ -159,7 +172,7 @@ export default function FiltersBar({
 
       {/* Bouton Réinitialiser */}
       <button
-        onClick={() => onChange({})}
+        onClick={() => onChange(defaultLatestAnnee && latestAnneeId !== undefined ? { id_annee: latestAnneeId } : {})}
         disabled={!hasActiveFilters}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition ${
           hasActiveFilters

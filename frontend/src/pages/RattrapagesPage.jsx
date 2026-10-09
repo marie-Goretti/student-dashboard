@@ -22,16 +22,34 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { getAnnees } from '../api/academicsService';
 
 export default function RattrapagesPage() {
   const [filters, setFilters] = useState({});
+  const [isReady, setIsReady] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 8;
+  const pageSize = 10;
+
+  // Charger la dernière année (la plus élevée) par défaut
+  useEffect(() => {
+    getAnnees()
+      .then((res) => {
+        const list = (res.results ?? res)
+          .filter((a) => a.annee_academique && a.annee_academique !== 'nan' && a.annee_academique !== 'None')
+          .sort((a, b) => String(b.annee_academique).localeCompare(String(a.annee_academique)));
+        if (list.length > 0) {
+          setFilters({ id_annee: list[0].id_annee });
+        }
+        setIsReady(true);
+      })
+      .catch(() => setIsReady(true));
+  }, []);
 
   const loadData = useCallback(async () => {
+    if (!isReady) return;
     setLoading(true);
     try {
       const res = await getAnalyseRattrapages(filters);
@@ -42,52 +60,32 @@ export default function RattrapagesPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, isReady]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Données par défaut ou issues de l'API
+  // Données 100% réelles issues de l'API (aucun mock factice)
   const kpi = data?.kpi || {
-    etudiants_concernes: 1245,
-    modules_concernes: 68,
-    taux_reussite: 62.3,
-    taux_echec: 37.7,
+    etudiants_concernes: 0,
+    modules_concernes: 0,
+    taux_reussite: 0,
+    taux_echec: 0,
   };
 
   const synthese = data?.synthese || {
-    moyenne_avant: 7.8,
-    gain_moyen: 3.4,
-    moyenne_apres: 11.2,
+    moyenne_avant: 0,
+    gain_moyen: 0,
+    moyenne_apres: 0,
   };
 
   const chartData = useMemo(() => {
-    if (data?.par_niveau && data.par_niveau.length > 0) {
-      return data.par_niveau;
-    }
-    return [
-      { niveau: 'B2SI', avant: 7.6, apres: 11.4 },
-      { niveau: 'M1SI', avant: 7.2, apres: 11.1 },
-      { niveau: 'M2M', avant: 6.8, apres: 9.8 },
-      { niveau: 'M1M', avant: 7.5, apres: 10.9 },
-    ];
+    return data?.par_niveau || [];
   }, [data]);
 
   const allStudents = useMemo(() => {
-    if (data?.etudiants && data.etudiants.length > 0) {
-      return data.etudiants;
-    }
-    return [
-      { id_eval: 1, etudiant: 'KODJO Samuel', module: 'Finance', avant: 6.2, apres: 11.5, evolution: '+5.3', resultat: 'Admis' },
-      { id_eval: 2, etudiant: 'ADJAHO Marie', module: 'Droit', avant: 6.1, apres: 12.0, evolution: '+5.9', resultat: 'Admis' },
-      { id_eval: 3, etudiant: 'GBEDE Kani', module: 'Comptabilité', avant: 7.4, apres: 10.8, evolution: '+3.4', resultat: 'Admis' },
-      { id_eval: 4, etudiant: 'TOHALLA Ahoué', module: 'Marketing', avant: 5.8, apres: 9.7, evolution: '+3.9', resultat: 'Refusé' },
-      { id_eval: 5, etudiant: 'MENSAH Flora', module: 'Finance', avant: 7.0, apres: 13.2, evolution: '+6.2', resultat: 'Admis' },
-      { id_eval: 6, etudiant: 'DOSSOU Patrick', module: 'Mathématiques', avant: 4.5, apres: 7.8, evolution: '+3.3', resultat: 'Refusé' },
-      { id_eval: 7, etudiant: 'HOUNTO Edwige', module: 'Droit', avant: 3.8, apres: 8.9, evolution: '+5.1', resultat: 'Refusé' },
-      { id_eval: 8, etudiant: 'SOKPOH René', module: 'Comptabilité', avant: 8.2, apres: 11.5, evolution: '+3.3', resultat: 'Admis' },
-    ];
+    return data?.etudiants || [];
   }, [data]);
 
   // Filtrage par recherche
@@ -96,9 +94,11 @@ export default function RattrapagesPage() {
     const term = searchTerm.toLowerCase();
     return allStudents.filter(
       (s) =>
-        s.etudiant.toLowerCase().includes(term) ||
-        s.module.toLowerCase().includes(term) ||
-        s.resultat.toLowerCase().includes(term)
+        (s.etudiant && s.etudiant.toLowerCase().includes(term)) ||
+        (s.matricule && s.matricule.toLowerCase().includes(term)) ||
+        (s.module && s.module.toLowerCase().includes(term)) ||
+        (s.niveau && s.niveau.toLowerCase().includes(term)) ||
+        (s.resultat && s.resultat.toLowerCase().includes(term))
     );
   }, [allStudents, searchTerm]);
 
@@ -160,15 +160,16 @@ export default function RattrapagesPage() {
         subtitle="Année académique 2024–2025"
       />
 
-      {/* 2. Filtres : Année, Programme, Niveau, Module + Réinitialiser */}
+      {/* 2. Filtres : Année, Programme, Niveau, Semestre, Module + Réinitialiser */}
       <FiltersBar
         filters={filters}
         onChange={setFilters}
         showAnnee={true}
         showProgramme={true}
         showNiveau={true}
+        showSemestre={true}
         showModule={true}
-        showSemestre={false}
+        defaultLatestAnnee={true}
       />
 
       {/* 3. Les 4 KPI Stat Cards */}
@@ -179,7 +180,7 @@ export default function RattrapagesPage() {
             <Users size={18} />
           </div>
           <div className="text-2xl font-bold text-ink tracking-tight font-sans">
-            {kpi.etudiants_concernes?.toLocaleString('fr-FR') || '1 245'}
+            {kpi.etudiants_concernes?.toLocaleString('fr-FR') ?? '0'}
           </div>
           <div className="text-xs text-ink/50 mt-1">Étudiants concernés</div>
         </div>
@@ -190,7 +191,7 @@ export default function RattrapagesPage() {
             <BookOpen size={18} />
           </div>
           <div className="text-2xl font-bold text-ink tracking-tight font-sans">
-            {kpi.modules_concernes?.toLocaleString('fr-FR') || '68'}
+            {kpi.modules_concernes?.toLocaleString('fr-FR') ?? '0'}
           </div>
           <div className="text-xs text-ink/50 mt-1">Modules concernés</div>
         </div>
@@ -201,7 +202,7 @@ export default function RattrapagesPage() {
             <TrendingUp size={18} />
           </div>
           <div className="text-2xl font-bold text-ink tracking-tight font-sans">
-            {String(kpi.taux_reussite ?? 62.3).replace('.', ',')}%
+            {String(kpi.taux_reussite ?? 0).replace('.', ',')}%
           </div>
           <div className="text-xs text-ink/50 mt-1">Taux de réussite</div>
         </div>
@@ -212,7 +213,7 @@ export default function RattrapagesPage() {
             <XCircle size={18} />
           </div>
           <div className="text-2xl font-bold text-ink tracking-tight font-sans">
-            {String(kpi.taux_echec ?? 37.7).replace('.', ',')}%
+            {String(kpi.taux_echec ?? 0).replace('.', ',')}%
           </div>
           <div className="text-xs text-ink/50 mt-1">Taux d'échec après rattrapage</div>
         </div>
@@ -233,7 +234,9 @@ export default function RattrapagesPage() {
               <div className="bg-cream-100/70 rounded-xl p-3 text-center border border-cream-200/50">
                 <div className="flex items-baseline justify-center gap-1">
                   <span className="text-xl font-bold text-ink font-sans">
-                    {String(synthese.moyenne_avant ?? 7.8).replace('.', ',')}
+                    {synthese.moyenne_avant !== null && synthese.moyenne_avant !== undefined
+                      ? String(synthese.moyenne_avant).replace('.', ',')
+                      : '—'}
                   </span>
                   <span className="text-xs text-ink/40">/20</span>
                 </div>
@@ -245,7 +248,9 @@ export default function RattrapagesPage() {
               {/* Gain moyen Rattrapage */}
               <div className="bg-cream-100/70 rounded-xl p-3 text-center border border-cream-200/50">
                 <div className="text-xl font-bold text-navy-600 font-sans">
-                  +{String(synthese.gain_moyen ?? 3.4).replace('.', ',')} pts
+                  {synthese.gain_moyen !== null && synthese.gain_moyen !== undefined
+                    ? `${Number(synthese.gain_moyen) > 0 ? '+' : ''}${String(synthese.gain_moyen).replace('.', ',')} pts`
+                    : '—'}
                 </div>
                 <div className="text-[10px] text-ink/40 leading-none">gain moyen</div>
                 <div className="text-[11px] text-ink/50 mt-1 font-medium">
@@ -257,7 +262,9 @@ export default function RattrapagesPage() {
               <div className="bg-cream-100/70 rounded-xl p-3 text-center border border-cream-200/50">
                 <div className="flex items-baseline justify-center gap-1">
                   <span className="text-xl font-bold text-ink font-sans">
-                    {String(synthese.moyenne_apres ?? 11.2).replace('.', ',')}
+                    {synthese.moyenne_apres !== null && synthese.moyenne_apres !== undefined
+                      ? String(synthese.moyenne_apres).replace('.', ',')
+                      : '—'}
                   </span>
                   <span className="text-xs text-ink/40">/20</span>
                 </div>
@@ -376,19 +383,36 @@ export default function RattrapagesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cream-100">
-                  {paginatedStudents.length > 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-xs text-ink/50">
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="w-6 h-6 border-2 border-navy-600 border-t-transparent rounded-full animate-spin" />
+                          <span>Chargement des données réelles de rattrapage...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : paginatedStudents.length > 0 ? (
                     paginatedStudents.map((item, idx) => {
-                      const isAdmis = item.resultat === 'Admis';
+                      const isAdmis = item.resultat === 'Admis' || Number(item.apres) >= 10.0;
                       return (
                         <tr
                           key={item.id_eval || idx}
                           className="hover:bg-cream-100/40 transition-colors"
                         >
                           <td className="py-2.5 px-2 font-medium text-ink">
-                            {item.etudiant}
+                            <div className="font-semibold text-ink">{item.etudiant}</div>
+                            {item.matricule && (
+                              <div className="text-[10px] text-ink/40 font-mono">{item.matricule}</div>
+                            )}
                           </td>
                           <td className="py-2.5 px-2 text-ink/75">
-                            {item.module}
+                            <div className="font-medium">{item.module}</div>
+                            {item.niveau && (
+                              <span className="inline-block text-[10px] px-1.5 py-0.2 bg-cream-100 text-ink/60 rounded font-medium mt-0.5">
+                                {item.niveau}
+                              </span>
+                            )}
                           </td>
                           <td className="py-2.5 px-2 text-center text-ink/70">
                             {typeof item.avant === 'number'
@@ -411,7 +435,7 @@ export default function RattrapagesPage() {
                                   : 'bg-[#FFEBEE] text-[#C62828]'
                               }`}
                             >
-                              {item.resultat}
+                              {isAdmis ? 'Admis' : 'Refusé'}
                             </span>
                           </td>
                         </tr>
@@ -421,9 +445,9 @@ export default function RattrapagesPage() {
                     <tr>
                       <td
                         colSpan={6}
-                        className="py-8 text-center text-xs text-ink/40"
+                        className="py-10 text-center text-xs text-ink/40"
                       >
-                        Aucun étudiant correspondant trouvé.
+                        Aucun étudiant en rattrapage trouvé pour les critères sélectionnés.
                       </td>
                     </tr>
                   )}

@@ -9,6 +9,7 @@ import DevoirVsExamenCard from '../components/dashboard/DevoirVsExamenCard';
 import PointsClesCard from '../components/dashboard/PointsClesCard';
 import EvolutionReussiteCard from '../components/dashboard/EvolutionReussiteCard';
 import DistributionNotesCard from '../components/dashboard/DistributionNotesCard';
+import { getAnnees } from '../api/academicsService';
 import {
   getKpiSummary,
   getRepartitionParNiveau,
@@ -21,6 +22,7 @@ import {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState({});
+  const [isReady, setIsReady] = useState(false);
   const [kpi, setKpi] = useState(null);
   const [parNiveau, setParNiveau] = useState([]);
   const [devoirVsExamen, setDevoirVsExamen] = useState([]);
@@ -29,7 +31,26 @@ export default function DashboardPage() {
   const [distribution, setDistribution] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Charger la dernière année (la plus élevée) par défaut
+  useEffect(() => {
+    getAnnees()
+      .then((data) => {
+        const list = (data.results ?? data)
+          .filter((a) => a.annee_academique && a.annee_academique !== 'nan' && a.annee_academique !== 'None')
+          .sort((a, b) => String(b.annee_academique).localeCompare(String(a.annee_academique)));
+        if (list.length > 0) {
+          setFilters({ id_annee: list[0].id_annee });
+        }
+        setIsReady(true);
+      })
+      .catch((err) => {
+        console.error('Erreur chargement années:', err);
+        setIsReady(true);
+      });
+  }, []);
+
   const loadData = useCallback(async () => {
+    if (!isReady) return;
     setLoading(true);
     try {
       const [
@@ -59,7 +80,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, isReady]);
 
   useEffect(() => {
     loadData();
@@ -78,8 +99,14 @@ export default function DashboardPage() {
         }}
       />
 
-      {/* 3. Barre de filtres juste après le cadre gris des KPIs et au-dessus des graphes */}
-      <FiltersBar filters={filters} onChange={setFilters} />
+      {/* 3. Barre de filtres : sans module, avec semestre, et année par défaut sur la plus élevée */}
+      <FiltersBar
+        filters={filters}
+        onChange={setFilters}
+        showModule={false}
+        showSemestre={true}
+        defaultLatestAnnee={true}
+      />
 
       {/* 5. Section des graphiques demandés */}
       {loading ? (

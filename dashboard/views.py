@@ -75,19 +75,22 @@ class TopModulesView(APIView):
 
 class StudentDashboardView(APIView):
     """
-    GET /api/dashboard/student/{id_etu}/
+    GET /api/dashboard/student/{id_etu}/?id_annee=&semestre=
 
     Fiche complète d'un étudiant : ses infos, ses KPIs personnels, son
-    évolution par année académique, et le détail de toutes ses évaluations.
-    Utilisé par la page "Fiche Étudiant" du frontend après une recherche.
+    évolution par année académique, et le détail de toutes ses évaluations
+    (filtrable par année académique et par semestre).
     """
     def get(self, request, id_etu):
         etudiant = get_object_or_404(DimEtudiant, pk=id_etu)
+        filters = _extract_filters(request)
         return Response({
             'etudiant': DimEtudiantSerializer(etudiant).data,
-            'kpi': services.get_student_kpi(id_etu),
+            'kpi': services.get_student_kpi(id_etu, filters=filters),
             'evolution': services.get_student_evolution(id_etu),
-            'modules': services.get_student_modules_detail(id_etu),
+            'modules': services.get_student_modules_detail(id_etu, filters=filters),
+            'annees': services.get_student_annees(id_etu),
+            'semestres': services.get_student_semestres(id_etu),
         })
 
 
