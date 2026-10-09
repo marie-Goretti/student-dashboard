@@ -46,7 +46,9 @@ export default function FiltersBar({
     });
 
     getAnnees().then((data) => {
-      const list = (data.results ?? data).filter((a) => a.annee_academique && a.annee_academique !== 'nan');
+      const list = (data.results ?? data)
+        .filter((a) => a.annee_academique && a.annee_academique !== 'nan' && a.annee_academique !== 'None')
+        .sort((a, b) => String(b.annee_academique).localeCompare(String(a.annee_academique)));
       setAnnees(list);
     });
   }, []);
@@ -74,7 +76,7 @@ export default function FiltersBar({
               value={filters.id_annee || ''}
               onChange={(e) => handleChange('id_annee', e.target.value)}
             >
-              <option value="">2024–2025</option>
+              <option value="">Toutes</option>
               {annees.map((a) => (
                 <option key={a.id_annee} value={a.id_annee}>
                   {a.annee_academique}

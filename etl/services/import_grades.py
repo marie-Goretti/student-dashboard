@@ -173,13 +173,13 @@ def _to_decimal_or_none(value):
 
 
 def _calculer_devoir_40(notes_devoirs: list) -> Decimal:
-    """note_devoir_40 = 40% x SOMME(devoir1..devoir4). Ignore les devoirs
-    non renseignés (None) dans la somme."""
+    """note_devoir_40 = 40% x MOYENNE(devoir1..devoir4). Ignore les devoirs
+    non renseignés (None) dans le calcul. Note sur 8 maximum."""
     valides = [n for n in notes_devoirs if n is not None]
     if not valides:
         return None
-    somme_devoirs = sum(valides)
-    return round(Decimal(somme_devoirs) * Decimal("0.4"), 2)
+    moyenne_devoirs = sum(valides) / Decimal(len(valides))
+    return round(moyenne_devoirs * Decimal("0.4"), 2)
 
 
 def _calculer_examen_60(note_examen) -> Decimal:
@@ -415,6 +415,13 @@ def import_grades_file(file_obj, sheet_name: str = None) -> dict:
             moyenne = None
             if devoir_40 is not None and examen_60 is not None:
                 moyenne = round(devoir_40 + examen_60, 2)
+            elif examen_60 is not None:
+                moyenne = round(note_examen, 2)
+            elif devoir_40 is not None:
+                moyenne = round(devoir_40 / Decimal("0.4"), 2)
+
+            if moyenne is not None:
+                moyenne = min(max(moyenne, Decimal("0.00")), Decimal("20.00"))
 
             resultat = _determiner_resultat(moyenne)
 

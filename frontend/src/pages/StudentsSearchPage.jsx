@@ -38,11 +38,11 @@ export default function StudentsSearchPage() {
       {/* En-tête */}
       <HeaderBar title="Étudiants" currentAnnee="2024–2025" />
 
-      {/* Barre de filtres (sans résultat, sans année) */}
+      {/* Barre de filtres (avec année académique) */}
       <FiltersBar
         filters={filters}
         onChange={setFilters}
-        showAnnee={false}
+        showAnnee={true}
       />
 
       {/* Card principale avec Recherche et Tableau des étudiants */}
