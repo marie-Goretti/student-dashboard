@@ -1,5 +1,6 @@
 """Services d'agrégation pour le dashboard analytique."""
 from django.db.models import Avg, Count, Q
+from django.db.models.functions import Coalesce
 from academics.models import FactEvaluation, ResultatChoices
 
 
@@ -378,17 +379,31 @@ def get_points_cles(filters: dict) -> list:
 
 def get_student_kpi(id_etu, filters: dict = None) -> dict:
     """KPIs propres à UN étudiant : nb de modules évalués, sa moyenne
-    générale sur la période sélectionnée, son taux de réussite
-    personnel, et le nombre de fois où il est passé en rattrapage."""
+    générale sur la période sélectionnée (tenant compte de la note retenue après rattrapage),
+    son taux de réussite personnel, et le nombre de modules passés en rattrapage."""
     qs = FactEvaluation.objects.filter(id_etu=id_etu)
     if filters:
         qs = _apply_filters(qs, filters)
 
     total_modules = qs.count()
-    admis = qs.filter(resultat=ResultatChoices.ADMIS).count()
+    # Admis en session normale OU validé au rattrapage (>= 10)
+    admis = qs.filter(
+        Q(resultat=ResultatChoices.ADMIS) |
+        Q(resultat_rattrapage=ResultatChoices.ADMIS) |
+        Q(moyenne_rattrapage__gte=10)
+    ).count()
     en_rattrapage = qs.filter(note_rattrapage__isnull=False).count()
-    moyenne_generale = qs.aggregate(avg=Avg('moyenne'))['avg']
 
+    # Moyenne générale calculée avec la note retenue (note après rattrapage si présente)
+    evals = list(qs)
+    notes = []
+    for ev in evals:
+        if ev.moyenne_rattrapage is not None:
+            notes.append(float(ev.moyenne_rattrapage))
+        elif ev.moyenne is not None:
+            notes.append(float(ev.moyenne))
+
+    moyenne_generale = (sum(notes) / len(notes)) if notes else None
     taux_reussite = round((admis / total_modules) * 100, 2) if total_modules > 0 else 0
 
     return {
@@ -405,9 +420,9 @@ def get_student_evolution(id_etu) -> list:
     data = (
         qs.values('id_annee__annee_academique')
         .annotate(
-            moyenne=Avg('moyenne'),
+            moyenne=Avg(Coalesce('moyenne_rattrapage', 'moyenne')),
             total=Count('id_eval'),
-            admis=Count('id_eval', filter=Q(resultat=ResultatChoices.ADMIS)),
+            admis=Count('id_eval', filter=Q(resultat=ResultatChoices.ADMIS) | Q(resultat_rattrapage=ResultatChoices.ADMIS) | Q(moyenne_rattrapage__gte=10)),
         )
         .order_by('id_annee__annee_academique')
     )
@@ -609,11 +624,17 @@ def get_analyse_etudiants(filters: dict, search: str = None) -> list:
     data = (
         qs.values('id_etu', 'id_etu__matricule', 'id_etu__nom', 'id_etu__prenom', 'id_niv__code_niv')
         .annotate(
-            avg_moyenne=Avg('moyenne'),
+            avg_moyenne=Avg(Coalesce('moyenne_rattrapage', 'moyenne')),
             total=Count('id_eval'),
-            modules_valides=Count('id_eval', filter=Q(moyenne__gte=10)),
-            en_difficulte=Count('id_eval', filter=Q(moyenne__lt=10)),
-            rattrapages=Count('id_eval', filter=Q(note_rattrapage__isnull=False) | Q(moyenne__lt=10)),
+            modules_valides=Count(
+                'id_eval',
+                filter=Q(moyenne__gte=10) | Q(moyenne_rattrapage__gte=10) | Q(resultat_rattrapage=ResultatChoices.ADMIS)
+            ),
+            en_difficulte=Count(
+                'id_eval',
+                filter=Q(moyenne__lt=10) & (Q(moyenne_rattrapage__isnull=True) | Q(moyenne_rattrapage__lt=10))
+            ),
+            rattrapages=Count('id_eval', filter=Q(note_rattrapage__isnull=False)),
         )
         .order_by('id_etu__nom', 'id_etu__prenom')
     )
@@ -721,24 +742,44 @@ def get_analyse_rattrapages(filters: dict) -> dict:
             prenom = (ev.id_etu.prenom or '').strip()
             nom_affiche = f"{nom.upper()} {prenom.title()}".strip() if (nom or prenom) else ev.id_etu.matricule
 
+            devoir_cc = (
+                round(float(ev.note_devoir_40) / 0.4, 1)
+                if ev.note_devoir_40 is not None
+                else None
+            )
+            note_exam = (
+                round(float(ev.note_examen), 1)
+                if ev.note_examen is not None
+                else None
+            )
+            note_rat = (
+                round(float(ev.note_rattrapage), 1)
+                if ev.note_rattrapage is not None
+                else None
+            )
+
+            # Moyenne avant rattrapage (session normale : 40% CC + 60% Examen initial)
             avant_val = (
                 round(float(ev.moyenne), 1)
                 if ev.moyenne is not None
-                else (round(float(ev.note_examen), 1) if ev.note_examen is not None else None)
+                else None
             )
+
+            # Moyenne après rattrapage (40% CC + 60% Note de rattrapage)
             apres_val = (
                 round(float(ev.moyenne_rattrapage), 1)
                 if ev.moyenne_rattrapage is not None
-                else (round(float(ev.note_rattrapage), 1) if ev.note_rattrapage is not None else None)
+                else note_rat
             )
+
             diff = (
                 round(apres_val - avant_val, 1)
                 if (apres_val is not None and avant_val is not None)
                 else None
             )
             is_adm = (
-                (apres_val is not None and apres_val >= 10.0)
-                or (ev.resultat_rattrapage == ResultatChoices.ADMIS)
+                (ev.resultat_rattrapage == ResultatChoices.ADMIS)
+                or (apres_val is not None and apres_val >= 10.0)
             )
 
             etudiants_list.append({
@@ -748,11 +789,15 @@ def get_analyse_rattrapages(filters: dict) -> dict:
                 'etudiant': nom_affiche,
                 'module': ev.id_mod.nom_mod if ev.id_mod.nom_mod else 'Module',
                 'code_mod': ev.id_mod.code_mod,
+                'id_mod': ev.id_mod_id,
                 'niveau': ev.id_niv.code_niv if ev.id_niv else '',
+                'id_niv': ev.id_niv_id,
                 'annee': ev.id_annee.annee_academique if ev.id_annee else '',
+                'note_devoir': devoir_cc,
+                'note_examen': note_exam,
+                'note_rattrapage': note_rat,
                 'avant': avant_val if avant_val is not None else 0.0,
                 'apres': apres_val if apres_val is not None else 0.0,
-                'note_rattrapage': float(ev.note_rattrapage) if ev.note_rattrapage is not None else None,
                 'evolution': f"+{diff}" if (diff is not None and diff > 0) else (str(diff) if diff is not None else '—'),
                 'resultat': 'Admis' if is_adm else 'Refusé',
             })
@@ -1155,11 +1200,17 @@ def get_niveau_detail(id_or_code_niv, filters: dict = None) -> dict:
     etu_data = (
         qs.values('id_etu', 'id_etu__matricule', 'id_etu__nom', 'id_etu__prenom')
         .annotate(
-            avg_moyenne=Avg('moyenne'),
+            avg_moyenne=Avg(Coalesce('moyenne_rattrapage', 'moyenne')),
             total=Count('id_eval'),
-            valides=Count('id_eval', filter=Q(moyenne__gte=10)),
-            en_difficulte=Count('id_eval', filter=Q(moyenne__lt=10)),
-            rattrapages_count=Count('id_eval', filter=Q(note_rattrapage__isnull=False) | Q(moyenne__lt=10)),
+            valides=Count(
+                'id_eval',
+                filter=Q(moyenne__gte=10) | Q(moyenne_rattrapage__gte=10) | Q(resultat_rattrapage=ResultatChoices.ADMIS)
+            ),
+            en_difficulte=Count(
+                'id_eval',
+                filter=Q(moyenne__lt=10) & (Q(moyenne_rattrapage__isnull=True) | Q(moyenne_rattrapage__lt=10))
+            ),
+            rattrapages_count=Count('id_eval', filter=Q(note_rattrapage__isnull=False)),
         )
         .order_by('id_etu__nom', 'id_etu__prenom')
     )
@@ -1293,9 +1344,13 @@ def get_module_detail(id_or_code_mod, filters: dict = None) -> dict:
 
     total_evals = qs.count()
     total_etudiants = qs.values('id_etu').distinct().count()
-    admis = qs.filter(resultat=ResultatChoices.ADMIS).count()
-    ajourne = qs.filter(resultat=ResultatChoices.AJOURNE).count()
-    moy_gen = qs.aggregate(avg=Avg('moyenne'))['avg']
+    admis = qs.filter(
+        Q(resultat=ResultatChoices.ADMIS) |
+        Q(moyenne_rattrapage__gte=10) |
+        Q(resultat_rattrapage=ResultatChoices.ADMIS)
+    ).count()
+    ajourne = total_evals - admis
+    moy_gen = qs.aggregate(avg=Avg(Coalesce('moyenne_rattrapage', 'moyenne')))['avg']
     avg_devoir_40 = qs.aggregate(avg=Avg('note_devoir_40'))['avg']
     avg_exam = qs.aggregate(avg=Avg('note_examen'))['avg']
     rattrapages = qs.filter(note_rattrapage__isnull=False).count()
@@ -1307,9 +1362,14 @@ def get_module_detail(id_or_code_mod, filters: dict = None) -> dict:
     niv_data = (
         qs.values('id_niv', 'id_niv__code_niv')
         .annotate(
-            avg_moyenne=Avg('moyenne'),
+            avg_moyenne=Avg(Coalesce('moyenne_rattrapage', 'moyenne')),
             total=Count('id_eval'),
-            admis_count=Count('id_eval', filter=Q(resultat=ResultatChoices.ADMIS)),
+            admis_count=Count(
+                'id_eval',
+                filter=Q(resultat=ResultatChoices.ADMIS) |
+                       Q(moyenne_rattrapage__gte=10) |
+                       Q(resultat_rattrapage=ResultatChoices.ADMIS)
+            ),
             etudiants=Count('id_etu', distinct=True),
         )
         .order_by('id_niv__code_niv')

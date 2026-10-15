@@ -6,12 +6,12 @@ import KpiCard from '../components/dashboard/KpiCard';
 import LineChartCard from '../components/dashboard/LineChartCard';
 import { getStudentDashboard } from '../api/dashboardService';
 import { getAnnees } from '../api/academicsService';
-import { BookOpen, TrendingUp, Award, RotateCcw, ArrowLeft, Mail, Calendar, Filter } from 'lucide-react';
+import { BookOpen, TrendingUp, Award, RotateCcw, ArrowLeft, Mail, Calendar, Filter, CheckCircle2, XCircle, Info, Sparkles } from 'lucide-react';
 
 const RESULTAT_BADGE = {
-  ADMIS: 'bg-green-100 text-green-700',
-  AJOURNE: 'bg-red-100 text-red-700',
-  NON_EVALUE: 'bg-gray-100 text-gray-500',
+  ADMIS: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  AJOURNE: 'bg-rose-50 text-rose-700 border border-rose-200',
+  NON_EVALUE: 'bg-gray-100 text-gray-500 border border-gray-200',
 };
 
 const RESULTAT_LABEL = {
@@ -165,6 +165,14 @@ export default function StudentDashboardPage() {
               </div>
             </div>
 
+            {/* Note explicative sur la règle du rattrapage 40% / 60% */}
+            <div className="mb-4 p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-start gap-2.5 text-xs text-amber-900">
+              <Info size={16} className="text-amber-700 shrink-0 mt-0.5" />
+              <p className="leading-relaxed">
+                <span className="font-semibold text-amber-950">Règle de validation des rattrapages :</span> Lorsqu'un étudiant n'atteint pas 10/20 en session normale (40% Devoir + 60% Examen), il passe en rattrapage. La note de rattrapage remplace la note d'examen (conservée pour historique) dans le calcul : <span className="font-semibold">40% Devoir (CC) + 60% Rattrapage</span>. Si cette moyenne recalculée atteint <span className="font-semibold text-emerald-800">≥ 10/20</span>, le module est validé (<span className="font-semibold text-emerald-800">Admis</span>), sinon il est définitivement ajourné.
+              </p>
+            </div>
+
             {data.modules.length === 0 ? (
               <p className="text-gray-400 text-sm text-center py-10">
                 Aucune évaluation enregistrée pour les filtres sélectionnés.
@@ -175,41 +183,101 @@ export default function StudentDashboardPage() {
                   <thead>
                     <tr className="text-left text-gray-500 border-b">
                       <th className="py-2.5 pr-4 font-semibold text-xs uppercase tracking-wider">Module</th>
-                      <th className="py-2.5 pr-4 font-semibold text-xs uppercase tracking-wider">Semestre</th>
-                      <th className="py-2.5 pr-4 font-semibold text-xs uppercase tracking-wider">Niveau</th>
-                      <th className="py-2.5 pr-4 font-semibold text-xs uppercase tracking-wider">Année</th>
-                      <th className="py-2.5 pr-4 font-semibold text-xs uppercase tracking-wider text-center">Note Devoir</th>
-                      <th className="py-2.5 pr-4 font-semibold text-xs uppercase tracking-wider text-center">Note Examen</th>
-                      <th className="py-2.5 pr-4 font-semibold text-xs uppercase tracking-wider text-center">Moyenne</th>
-                      <th className="py-2.5 pr-4 font-semibold text-xs uppercase tracking-wider">Résultat</th>
-                      <th className="py-2.5 pr-4 font-semibold text-xs uppercase tracking-wider text-center">Rattrapage</th>
+                      <th className="py-2.5 pr-3 font-semibold text-xs uppercase tracking-wider">Sem.</th>
+                      <th className="py-2.5 pr-3 font-semibold text-xs uppercase tracking-wider">Niveau</th>
+                      <th className="py-2.5 pr-3 font-semibold text-xs uppercase tracking-wider">Année</th>
+                      <th className="py-2.5 pr-3 font-semibold text-xs uppercase tracking-wider text-center">Devoir CC (40%)</th>
+                      <th className="py-2.5 pr-3 font-semibold text-xs uppercase tracking-wider text-center">Examen SN (60%)</th>
+                      <th className="py-2.5 pr-3 font-semibold text-xs uppercase tracking-wider text-center">Moyenne SN</th>
+                      <th className="py-2.5 pr-3 font-semibold text-xs uppercase tracking-wider text-center">Session Normale</th>
+                      <th className="py-2.5 pr-3 font-semibold text-xs uppercase tracking-wider text-center">Épreuve Rattrapage</th>
+                      <th className="py-2.5 pr-3 font-semibold text-xs uppercase tracking-wider text-center">Moy. Recalculée (40/60)</th>
+                      <th className="py-2.5 pr-4 font-semibold text-xs uppercase tracking-wider text-right">Statut Final</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.modules.map((m, i) => {
                       const semLabel = m.semestre ? (String(m.semestre).startsWith('S') ? m.semestre : `S${m.semestre}`) : '—';
+                      const hasRat = m.note_rattrapage !== null && m.note_rattrapage !== undefined;
+                      const isAdmisNormal = m.resultat === 'ADMIS' || (m.moyenne !== null && m.moyenne >= 10);
+                      const isAdmisRat = hasRat && (
+                        m.resultat_rattrapage === 'ADMIS' ||
+                        (m.moyenne_rattrapage !== null && Number(m.moyenne_rattrapage) >= 10)
+                      );
+                      const isAdmisFinal = isAdmisNormal || isAdmisRat;
+
                       return (
                         <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition">
-                          <td className="py-3 pr-4 font-medium text-gray-900">{m.module}</td>
-                          <td className="py-3 pr-4 text-gray-600 font-medium">{semLabel}</td>
-                          <td className="py-3 pr-4 text-gray-500">{m.niveau}</td>
-                          <td className="py-3 pr-4 text-gray-500">{m.annee}</td>
-                          <td className="py-3 pr-4 text-center font-medium text-gray-700">
-                            {m.note_devoir !== null && m.note_devoir !== undefined ? Number(m.note_devoir).toFixed(2) : '—'}
+                          <td className="py-3 pr-4 font-semibold text-gray-900">
+                            {m.module}
                           </td>
-                          <td className="py-3 pr-4 text-center font-medium text-gray-700">
-                            {m.note_examen !== null && m.note_examen !== undefined ? Number(m.note_examen).toFixed(2) : '—'}
+                          <td className="py-3 pr-3 text-gray-600 font-medium">{semLabel}</td>
+                          <td className="py-3 pr-3 text-gray-500">{m.niveau}</td>
+                          <td className="py-3 pr-3 text-gray-500">{m.annee}</td>
+
+                          {/* Devoir CC (40%) */}
+                          <td className="py-3 pr-3 text-center font-medium text-gray-700">
+                            {m.note_devoir !== null && m.note_devoir !== undefined ? `${Number(m.note_devoir).toFixed(2)}/20` : '—'}
                           </td>
-                          <td className="py-3 pr-4 text-center font-bold text-gray-900">
-                            {m.moyenne !== null && m.moyenne !== undefined ? Number(m.moyenne).toFixed(2) : '—'}
+
+                          {/* Examen SN (60%) */}
+                          <td className="py-3 pr-3 text-center font-medium text-gray-700">
+                            {m.note_examen !== null && m.note_examen !== undefined ? `${Number(m.note_examen).toFixed(2)}/20` : '—'}
                           </td>
-                          <td className="py-3 pr-4">
-                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${RESULTAT_BADGE[m.resultat]}`}>
+
+                          {/* Moyenne SN */}
+                          <td className={`py-3 pr-3 text-center font-bold ${m.moyenne < 10 ? 'text-rose-600' : 'text-gray-900'}`}>
+                            {m.moyenne !== null && m.moyenne !== undefined ? `${Number(m.moyenne).toFixed(2)}/20` : '—'}
+                          </td>
+
+                          {/* Session Normale Résultat */}
+                          <td className="py-3 pr-3 text-center">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${RESULTAT_BADGE[m.resultat] || 'bg-gray-100 text-gray-600'}`}>
+                              {m.resultat === 'ADMIS' ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
                               {RESULTAT_LABEL[m.resultat] || m.resultat}
                             </span>
                           </td>
-                          <td className="py-3 pr-4 text-center text-gray-600 font-medium">
-                            {m.note_rattrapage !== null && m.note_rattrapage !== undefined ? Number(m.note_rattrapage).toFixed(2) : '—'}
+
+                          {/* Épreuve de rattrapage (/20) */}
+                          <td className="py-3 pr-3 text-center font-semibold text-gray-800">
+                            {hasRat ? (
+                              <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-900 rounded font-bold border border-amber-200">
+                                {Number(m.note_rattrapage).toFixed(2)}/20
+                              </span>
+                            ) : (
+                              <span className="text-gray-300 font-normal">—</span>
+                            )}
+                          </td>
+
+                          {/* Moyenne recalculée (40% Devoir + 60% Rattrapage) */}
+                          <td className="py-3 pr-3 text-center font-bold">
+                            {hasRat && m.moyenne_rattrapage !== null && m.moyenne_rattrapage !== undefined ? (
+                              <span className={`${Number(m.moyenne_rattrapage) >= 10 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                                {Number(m.moyenne_rattrapage).toFixed(2)}/20
+                              </span>
+                            ) : (
+                              <span className="text-gray-300 font-normal">—</span>
+                            )}
+                          </td>
+
+                          {/* Statut Final */}
+                          <td className="py-3 pr-4 text-right">
+                            {isAdmisNormal ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                <CheckCircle2 size={12} />
+                                Admis (SN)
+                              </span>
+                            ) : isAdmisRat ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300">
+                                <Sparkles size={12} className="text-amber-500" />
+                                Admis (Rattrapage)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                <XCircle size={12} />
+                                Ajourné
+                              </span>
+                            )}
                           </td>
                         </tr>
                       );

@@ -439,12 +439,24 @@ def import_grades_file(file_obj, sheet_name: str = None) -> dict:
 
             resultat = _determiner_resultat(moyenne)
 
-            moyenne_rattrapage = note_rattrapage
+            # --- Rattrapage : la note de rattrapage remplace la note d'examen (sans l'écraser) ---
+            # Le calcul 40% devoir + 60% examen est refait avec note_rattrapage à la place de note_examen.
+            moyenne_rattrapage = None
             resultat_rattrapage = None
             if note_rattrapage is not None:
-                resultat_rattrapage = (
-                    ResultatChoices.ADMIS if note_rattrapage >= 10 else ResultatChoices.AJOURNE
-                )
+                examen_rat_60 = _calculer_examen_60(note_rattrapage)
+                if devoir_40 is not None and examen_rat_60 is not None:
+                    moyenne_rattrapage = round(devoir_40 + examen_rat_60, 2)
+                elif examen_rat_60 is not None:
+                    moyenne_rattrapage = round(note_rattrapage, 2)
+                elif devoir_40 is not None:
+                    moyenne_rattrapage = round(devoir_40 / Decimal("0.4"), 2)
+
+                if moyenne_rattrapage is not None:
+                    moyenne_rattrapage = min(max(moyenne_rattrapage, Decimal("0.00")), Decimal("20.00"))
+                    resultat_rattrapage = (
+                        ResultatChoices.ADMIS if moyenne_rattrapage >= Decimal("10.00") else ResultatChoices.AJOURNE
+                    )
 
             # --- Upsert dans fact_evaluation (quadruplet unique) ---
             obj, created = FactEvaluation.objects.update_or_create(

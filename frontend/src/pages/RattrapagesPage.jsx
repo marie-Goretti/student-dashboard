@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
 import FiltersBar from '../components/dashboard/FiltersBar';
@@ -12,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
+  Info,
 } from 'lucide-react';
 import {
   BarChart,
@@ -25,6 +27,7 @@ import {
 import { getAnnees } from '../api/academicsService';
 
 export default function RattrapagesPage() {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState({});
   const [isReady, setIsReady] = useState(false);
   const [data, setData] = useState(null);
@@ -336,10 +339,12 @@ export default function RattrapagesPage() {
         {/* Colonne droite : Détail des rattrapages */}
         <div className="lg:col-span-7 bg-white rounded-2xl border border-cream-200 p-5 shadow-xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-              <h3 className="font-bold text-ink text-[15px] tracking-tight">
-                Détail des rattrapages
-              </h3>
+            <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+              <div>
+                <h3 className="font-bold text-ink text-[15px] tracking-tight">
+                  Détail des rattrapages
+                </h3>
+              </div>
 
               {/* Champ de recherche rapide */}
               <div className="flex items-center gap-2 bg-cream-100/60 rounded-full px-3 py-1 border border-cream-200 text-xs w-48 md:w-56">
@@ -368,14 +373,20 @@ export default function RattrapagesPage() {
                     <th className="text-left py-2 px-2 uppercase tracking-wider">
                       Module
                     </th>
-                    <th className="text-center py-2 px-2 uppercase tracking-wider">
+                    <th className="text-center py-2 px-1.5 uppercase tracking-wider" title="Note de devoir ramenée sur 20">
+                      CC (/20)
+                    </th>
+                    <th className="text-center py-2 px-1.5 uppercase tracking-wider" title="Note obtenue à l'épreuve de rattrapage">
+                      Rattrapage
+                    </th>
+                    <th className="text-center py-2 px-1.5 uppercase tracking-wider" title="Moyenne session normale">
                       Avant
                     </th>
-                    <th className="text-center py-2 px-2 uppercase tracking-wider">
-                      Après
+                    <th className="text-center py-2 px-1.5 uppercase tracking-wider" title="Moyenne recalculée : 40% CC + 60% Rattrapage">
+                      Moy. Après
                     </th>
-                    <th className="text-center py-2 px-2 uppercase tracking-wider">
-                      Évolution
+                    <th className="text-center py-2 px-1.5 uppercase tracking-wider">
+                      Gain
                     </th>
                     <th className="text-right py-2 px-2 uppercase tracking-wider">
                       Résultat
@@ -385,7 +396,7 @@ export default function RattrapagesPage() {
                 <tbody className="divide-y divide-cream-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-xs text-ink/50">
+                      <td colSpan={8} className="py-12 text-center text-xs text-ink/50">
                         <div className="flex flex-col items-center gap-2">
                           <div className="w-6 h-6 border-2 border-navy-600 border-t-transparent rounded-full animate-spin" />
                           <span>Chargement des données réelles de rattrapage...</span>
@@ -400,31 +411,52 @@ export default function RattrapagesPage() {
                           key={item.id_eval || idx}
                           className="hover:bg-cream-100/40 transition-colors"
                         >
-                          <td className="py-2.5 px-2 font-medium text-ink">
-                            <div className="font-semibold text-ink">{item.etudiant}</div>
+                          <td
+                            className="py-2.5 px-2 font-medium text-ink cursor-pointer hover:text-navy-700 transition"
+                            onClick={() => item.id_etu && navigate(`/students/${item.id_etu}`)}
+                          >
+                            <div className="font-semibold">{item.etudiant}</div>
                             {item.matricule && (
                               <div className="text-[10px] text-ink/40 font-mono">{item.matricule}</div>
                             )}
                           </td>
                           <td className="py-2.5 px-2 text-ink/75">
-                            <div className="font-medium">{item.module}</div>
+                            <div
+                              className="font-medium cursor-pointer hover:text-navy-700 transition"
+                              onClick={() => item.id_mod && navigate(`/modules/${item.id_mod}`)}
+                            >
+                              {item.module}
+                            </div>
                             {item.niveau && (
-                              <span className="inline-block text-[10px] px-1.5 py-0.2 bg-cream-100 text-ink/60 rounded font-medium mt-0.5">
+                              <span
+                                onClick={() => item.id_niv && navigate(`/niveaux/${item.id_niv}`)}
+                                className="inline-block text-[10px] px-1.5 py-0.2 bg-cream-100 hover:bg-cream-200 cursor-pointer text-ink/70 rounded font-medium mt-0.5 transition"
+                              >
                                 {item.niveau}
                               </span>
                             )}
                           </td>
-                          <td className="py-2.5 px-2 text-center text-ink/70">
+                          <td className="py-2.5 px-1.5 text-center text-ink/70 font-mono">
+                            {item.note_devoir !== null && item.note_devoir !== undefined
+                              ? Number(item.note_devoir).toFixed(1)
+                              : '—'}
+                          </td>
+                          <td className="py-2.5 px-1.5 text-center font-bold text-navy-800 font-mono">
+                            {item.note_rattrapage !== null && item.note_rattrapage !== undefined
+                              ? Number(item.note_rattrapage).toFixed(1)
+                              : '—'}
+                          </td>
+                          <td className="py-2.5 px-1.5 text-center text-ink/60 font-mono">
                             {typeof item.avant === 'number'
                               ? item.avant.toFixed(1)
                               : item.avant}
                           </td>
-                          <td className="py-2.5 px-2 text-center font-semibold text-ink">
+                          <td className="py-2.5 px-1.5 text-center font-black text-ink font-mono bg-cream-50/50">
                             {typeof item.apres === 'number'
                               ? item.apres.toFixed(1)
                               : item.apres}
                           </td>
-                          <td className="py-2.5 px-2 text-center font-bold text-navy-600">
+                          <td className="py-2.5 px-1.5 text-center font-bold text-navy-600 font-mono">
                             {item.evolution}
                           </td>
                           <td className="py-2.5 px-2 text-right">

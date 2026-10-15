@@ -6,7 +6,7 @@ import { getModuleDetail } from '../api/dashboardService';
 import {
   ArrowLeft, BookOpen, Users, TrendingUp, Award, AlertTriangle,
   RotateCcw, Search, ChevronRight, CheckCircle2, XCircle,
-  Calendar, Layers, FileText, Loader2
+  Calendar, Layers, FileText, Loader2, Sparkles
 } from 'lucide-react';
 import {
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -377,10 +377,10 @@ export default function ModuleDetailPage() {
                     <th className="py-3.5 px-6">Niveau</th>
                     <th className="py-3.5 px-6">Année</th>
                     <th className="py-3.5 px-6">Devoirs (CC)</th>
-                    <th className="py-3.5 px-6">Examen</th>
-                    <th className="py-3.5 px-6">Moyenne</th>
-                    <th className="py-3.5 px-6">Résultat</th>
-                    <th className="py-3.5 px-6">Rattrapage</th>
+                    <th className="py-3.5 px-6">Examen SN</th>
+                    <th className="py-3.5 px-6">Moyenne SN</th>
+                    <th className="py-3.5 px-6">Rattrapage (Épreuve & 40/60)</th>
+                    <th className="py-3.5 px-6">Statut Final</th>
                     <th className="py-3.5 px-6 text-right">Fiche</th>
                   </tr>
                 </thead>
@@ -423,24 +423,37 @@ export default function ModuleDetailPage() {
                           {ev.moyenne !== null ? `${Number(ev.moyenne).toFixed(2)}/20` : '—'}
                         </td>
                         <td className="py-3.5 px-6">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                              ev.resultat === 'ADMIS'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : 'bg-rose-50 text-maroon-600 border border-rose-200'
-                            }`}
-                          >
-                            {ev.resultat === 'ADMIS' ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-                            {ev.resultat === 'ADMIS' ? 'Admis' : 'Ajourné'}
-                          </span>
+                          {ev.note_rattrapage !== null ? (
+                            <div className="space-y-0.5">
+                              <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-900 rounded font-semibold border border-amber-200 text-xs">
+                                Épreuve : {Number(ev.note_rattrapage).toFixed(2)}/20
+                              </span>
+                              {ev.moyenne_rattrapage !== null && (
+                                <p className="text-[11px] text-ink/60 font-medium">
+                                  Moy. 40/60 : <span className={Number(ev.moyenne_rattrapage) >= 10 ? 'text-emerald-700 font-bold' : 'text-rose-600 font-bold'}>{Number(ev.moyenne_rattrapage).toFixed(2)}/20</span>
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-ink/30">—</span>
+                          )}
                         </td>
                         <td className="py-3.5 px-6">
-                          {ev.note_rattrapage !== null ? (
-                            <span className="font-semibold text-ink">
-                              {Number(ev.note_rattrapage).toFixed(2)}/20
+                          {ev.resultat === 'ADMIS' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <CheckCircle2 size={12} />
+                              Admis (SN)
+                            </span>
+                          ) : ev.moyenne_rattrapage !== null && (Number(ev.moyenne_rattrapage) >= 10 || ev.resultat_rattrapage === 'ADMIS') ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <Sparkles size={12} className="text-amber-500" />
+                              Admis (Rattrapage)
                             </span>
                           ) : (
-                            <span className="text-ink/40">—</span>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-maroon-600 border border-rose-200">
+                              <XCircle size={12} />
+                              Ajourné
+                            </span>
                           )}
                         </td>
                         <td className="py-3.5 px-6 text-right">
