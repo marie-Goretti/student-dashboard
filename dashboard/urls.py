@@ -5,6 +5,7 @@ from .views import (
     TopModulesView, StudentDashboardView, DevoirVsExamenView, PointsClesView,
     AnalyseNiveauxView, AnalyseModulesView, AnalyseEtudiantsView,
     AnalyseRattrapagesView, RecommandationsView,
+    NiveauDetailView, ModuleDetailView,
 )
 
 app_name = 'dashboard'
@@ -12,7 +13,9 @@ urlpatterns = [
     path('kpi-summary/', KpiSummaryView.as_view(), name='kpi-summary'),
     path('repartition-niveau/', RepartitionParNiveauView.as_view(), name='repartition-niveau'),
     path('analyse-niveaux/', AnalyseNiveauxView.as_view(), name='analyse-niveaux'),
+    path('niveau/<str:id_or_code>/', NiveauDetailView.as_view(), name='niveau-detail'),
     path('analyse-modules/', AnalyseModulesView.as_view(), name='analyse-modules'),
+    path('module/<str:id_or_code>/', ModuleDetailView.as_view(), name='module-detail'),
     path('analyse-etudiants/', AnalyseEtudiantsView.as_view(), name='analyse-etudiants'),
     path('analyse-rattrapages/', AnalyseRattrapagesView.as_view(), name='analyse-rattrapages'),
     path('recommandations/', RecommandationsView.as_view(), name='recommandations'),

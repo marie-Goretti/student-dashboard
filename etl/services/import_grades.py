@@ -250,21 +250,35 @@ def _get_or_create_module(module_nom_raw: str, semestre):
 
 def _build_student_lookup():
     """Construit un dictionnaire {(nom_normalise, prenom_normalise): etudiant}
-    à partir de dim_etudiant, en détectant les homonymes (ambiguïtés)."""
+    à partir de dim_etudiant.
+    En cas de multi-inscriptions (même étudiant avec plusieurs matricules ou années),
+    résout intelligemment le bon profil (privilégie celui avec évaluations, puis métadonnées).
+    """
+    from collections import defaultdict
     lookup = {}
-    ambiguous_keys = set()
+    candidates = defaultdict(list)
 
     for etu in DimEtudiant.objects.all():
         key = (_normalize_name(etu.nom), _normalize_name(etu.prenom))
-        if key in lookup:
-            ambiguous_keys.add(key)
+        candidates[key].append(etu)
+
+    for key, etus in candidates.items():
+        if len(etus) == 1:
+            lookup[key] = etus[0]
         else:
-            lookup[key] = etu
+            # Tri par priorité : évaluations existantes, complétude des infos, id
+            def _score(e):
+                return (
+                    e.evaluations.count(),
+                    1 if e.mail else 0,
+                    1 if e.date_naissance else 0,
+                    1 if e.annee_souscription else 0,
+                    -e.id_etu
+                )
+            sorted_etus = sorted(etus, key=_score, reverse=True)
+            lookup[key] = sorted_etus[0]
 
-    for key in ambiguous_keys:
-        lookup.pop(key, None)  # on retire les homonymes : ils devront être traités manuellement
-
-    return lookup, ambiguous_keys
+    return lookup, set()
 
 
 def _clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:

@@ -1,4 +1,5 @@
-import { Trophy } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Trophy, ChevronRight } from 'lucide-react';
 
 const RANK_STYLES = [
   'bg-navy-500 text-white',
@@ -9,6 +10,8 @@ const RANK_STYLES = [
 ];
 
 export default function TopModulesList({ modules }) {
+  const navigate = useNavigate();
+
   return (
     <div className="bg-white rounded-2xl border border-cream-200 shadow-sm p-4 h-full">
       <div className="flex items-center gap-2 mb-3">
@@ -21,7 +24,11 @@ export default function TopModulesList({ modules }) {
       ) : (
         <ul className="space-y-2">
           {modules.map((m, i) => (
-            <li key={`${m.module}-${m.niveau}`} className="flex items-center gap-2.5">
+            <li
+              key={`${m.module}-${m.niveau}`}
+              onClick={() => navigate(`/modules/${m.id_mod || m.module}`)}
+              className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-cream-50 transition cursor-pointer group"
+            >
               <span
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 ${
                   RANK_STYLES[i] ?? RANK_STYLES[4]
@@ -30,7 +37,7 @@ export default function TopModulesList({ modules }) {
                 {i + 1}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium text-ink truncate">{m.module}</p>
+                <p className="text-[13px] font-medium text-ink truncate group-hover:text-navy-600 transition">{m.module}</p>
                 <p className="text-[11px] text-ink/50">{m.niveau}</p>
               </div>
               <span className="font-serif text-base font-semibold text-navy-500 shrink-0">

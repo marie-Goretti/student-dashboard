@@ -4,7 +4,9 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ImportPage from './pages/ImportPage';
 import NiveauxPage from './pages/NiveauxPage';
+import NiveauDetailPage from './pages/NiveauDetailPage';
 import ModulesPage from './pages/ModulesPage';
+import ModuleDetailPage from './pages/ModuleDetailPage';
 import StudentsSearchPage from './pages/StudentsSearchPage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
 
@@ -24,7 +26,9 @@ function AppRoutes() {
       <Route path="/" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
       <Route path="/import" element={<PrivateRoute><ImportPage /></PrivateRoute>} />
       <Route path="/niveaux" element={<PrivateRoute><NiveauxPage /></PrivateRoute>} />
+      <Route path="/niveaux/:id" element={<PrivateRoute><NiveauDetailPage /></PrivateRoute>} />
       <Route path="/modules" element={<PrivateRoute><ModulesPage /></PrivateRoute>} />
+      <Route path="/modules/:id" element={<PrivateRoute><ModuleDetailPage /></PrivateRoute>} />
       <Route path="/students" element={<PrivateRoute><StudentsSearchPage /></PrivateRoute>} />
       <Route path="/students/:id" element={<PrivateRoute><StudentDashboardPage /></PrivateRoute>} />
       <Route path="/rattrapages" element={<PrivateRoute><RattrapagesPage /></PrivateRoute>} />

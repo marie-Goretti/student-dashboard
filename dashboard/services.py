@@ -264,12 +264,13 @@ def get_top_modules(filters: dict, limit: int = 5) -> list:
     data = (
         qs.exclude(moyenne__isnull=True)
         .exclude(id_niv__code_niv='NAN')
-        .values('id_mod__nom_mod', 'id_niv__code_niv')
+        .values('id_mod', 'id_mod__nom_mod', 'id_niv__code_niv')
         .annotate(moyenne=Avg('moyenne'), effectif=Count('id_eval'))
         .order_by('-moyenne')[:limit]
     )
     return [
         {
+            'id_mod': row['id_mod'],
             'module': row['id_mod__nom_mod'],
             'niveau': row['id_niv__code_niv'],
             'moyenne': max(0.0, min(20.0, round(float(row['moyenne']), 2))) if row['moyenne'] is not None else None,
@@ -503,7 +504,7 @@ def get_analyse_niveaux(filters: dict) -> list:
     qs = _apply_filters(FactEvaluation.objects.all(), filters)
     qs = qs.exclude(id_niv__code_niv__isnull=True).exclude(id_niv__code_niv='NAN')
     data = (
-        qs.values('id_niv__code_niv')
+        qs.values('id_niv', 'id_niv__code_niv')
         .annotate(
             avg_moyenne=Avg('moyenne'),
             total=Count('id_eval'),
@@ -529,6 +530,7 @@ def get_analyse_niveaux(filters: dict) -> list:
             risque = 'Critique'
 
         result.append({
+            'id_niv': row['id_niv'],
             'niveau': row['id_niv__code_niv'],
             'etudiants': row['etudiants'],
             'moyenne': max(0.0, min(20.0, round(float(row['avg_moyenne']), 2))) if row['avg_moyenne'] is not None else None,
@@ -549,7 +551,7 @@ def get_analyse_modules(filters: dict) -> dict:
     qs = _apply_filters(FactEvaluation.objects.all(), filters)
     qs = qs.exclude(id_mod__nom_mod__isnull=True).exclude(id_mod__nom_mod='NAN').exclude(moyenne__isnull=True)
     data = (
-        qs.values('id_mod__nom_mod')
+        qs.values('id_mod', 'id_mod__nom_mod')
         .annotate(
             avg_moyenne=Avg('moyenne'),
             total=Count('id_eval'),
@@ -570,6 +572,7 @@ def get_analyse_modules(filters: dict) -> dict:
         risque = 'Élevé' if taux_echec >= 55 or moy < 9.0 else ('Moyen' if taux_echec >= 40 or moy < 11.0 else 'Faible')
 
         modules_stats.append({
+            'id_mod': row['id_mod'],
             'module': row['id_mod__nom_mod'],
             'moyenne': moy,
             'taux_reussite': taux_reussite,
@@ -1065,4 +1068,381 @@ def get_recommandations(filters: dict) -> dict:
             },
         },
         'recommandations': recommendations_list,
-    }
+    }
+
+
+# ---------------------------------------------------------------------------
+# Vues détaillées par Niveau et par Module
+# ---------------------------------------------------------------------------
+
+def get_niveau_detail(id_or_code_niv, filters: dict = None) -> dict:
+    """
+    Détail complet d'un niveau académique (ex: B1M, B2SI, etc.) :
+    - Infos du niveau (code, libellé)
+    - KPIs clés (effectif, moyenne générale, taux de réussite/échec, rattrapages, modules)
+    - Modules évalués dans ce niveau avec leurs statistiques
+    - Liste des étudiants inscrits à ce niveau avec leurs performances
+    - Distribution des notes
+    - Évolution annuelle
+    """
+    from students.models import DimNiveau
+    from academics.models import DimAnneeAcademique
+
+    # Recherche par ID ou code niveau
+    if str(id_or_code_niv).isdigit():
+        niveau = DimNiveau.objects.filter(pk=int(id_or_code_niv)).first()
+    else:
+        niveau = DimNiveau.objects.filter(code_niv__iexact=str(id_or_code_niv).strip()).first()
+
+    if not niveau:
+        return None
+
+    qs = FactEvaluation.objects.filter(id_niv=niveau)
+    if filters:
+        # On n'applique pas id_niv car on est sur ce niveau
+        filters_copy = {k: v for k, v in filters.items() if k != 'id_niv'}
+        qs = _apply_filters(qs, filters_copy)
+
+    total_evals = qs.count()
+    effectif = qs.values('id_etu').distinct().count()
+    admis = qs.filter(resultat=ResultatChoices.ADMIS).count()
+    ajourne = qs.filter(resultat=ResultatChoices.AJOURNE).count()
+    moy_gen = qs.aggregate(avg=Avg('moyenne'))['avg']
+    avg_devoir_40 = qs.aggregate(avg=Avg('note_devoir_40'))['avg']
+    avg_exam = qs.aggregate(avg=Avg('note_examen'))['avg']
+    rattrapages = qs.filter(Q(note_rattrapage__isnull=False) | Q(moyenne__lt=10)).count()
+    total_modules = qs.values('id_mod').distinct().count()
+
+    taux_reussite = round((admis / total_evals) * 100, 1) if total_evals > 0 else 0.0
+    taux_echec = round((ajourne / total_evals) * 100, 1) if total_evals > 0 else 0.0
+
+    # Modules de ce niveau
+    mod_data = (
+        qs.values('id_mod', 'id_mod__code_mod', 'id_mod__nom_mod', 'id_mod__semestre')
+        .annotate(
+            avg_moyenne=Avg('moyenne'),
+            total=Count('id_eval'),
+            admis_count=Count('id_eval', filter=Q(resultat=ResultatChoices.ADMIS)),
+            etudiants=Count('id_etu', distinct=True),
+            rattrapages_count=Count('id_eval', filter=Q(note_rattrapage__isnull=False) | Q(moyenne__lt=10)),
+        )
+        .order_by('-avg_moyenne')
+    )
+
+    modules_list = []
+    for m in mod_data:
+        m_tot = m['total']
+        m_adm = m['admis_count']
+        m_taux_reussite = round((m_adm / m_tot) * 100, 1) if m_tot > 0 else 0.0
+        m_taux_echec = round(100.0 - m_taux_reussite, 1)
+        m_moy = max(0.0, min(20.0, round(float(m['avg_moyenne']), 2))) if m['avg_moyenne'] is not None else None
+        m_risque = 'Élevé' if (m_taux_echec >= 50 or (m_moy is not None and m_moy < 10.0)) else ('Moyen' if m_taux_echec >= 35 else 'Faible')
+
+        modules_list.append({
+            'id_mod': m['id_mod'],
+            'code_mod': m['id_mod__code_mod'],
+            'nom_mod': m['id_mod__nom_mod'],
+            'semestre': m['id_mod__semestre'],
+            'moyenne': m_moy,
+            'taux_reussite': m_taux_reussite,
+            'taux_echec': m_taux_echec,
+            'effectif': m['etudiants'],
+            'rattrapages': m['rattrapages_count'],
+            'risque': m_risque,
+        })
+
+    # Étudiants de ce niveau
+    etu_data = (
+        qs.values('id_etu', 'id_etu__matricule', 'id_etu__nom', 'id_etu__prenom')
+        .annotate(
+            avg_moyenne=Avg('moyenne'),
+            total=Count('id_eval'),
+            valides=Count('id_eval', filter=Q(moyenne__gte=10)),
+            en_difficulte=Count('id_eval', filter=Q(moyenne__lt=10)),
+            rattrapages_count=Count('id_eval', filter=Q(note_rattrapage__isnull=False) | Q(moyenne__lt=10)),
+        )
+        .order_by('id_etu__nom', 'id_etu__prenom')
+    )
+
+    etudiants_list = []
+    for e in etu_data:
+        nom = (e['id_etu__nom'] or '').strip()
+        prenom = (e['id_etu__prenom'] or '').strip()
+        nom_complet = f"{nom.upper()} {prenom.title()}".strip()
+        ini1 = nom[0].upper() if nom else 'E'
+        ini2 = prenom[0].upper() if prenom else ''
+        initiales = f"{ini1}{ini2}"
+        e_moy = max(0.0, min(20.0, round(float(e['avg_moyenne']), 2))) if e['avg_moyenne'] is not None else 0.0
+
+        etudiants_list.append({
+            'id_etu': e['id_etu'],
+            'matricule': e['id_etu__matricule'],
+            'nom_complet': nom_complet,
+            'initiales': initiales,
+            'moyenne': e_moy,
+            'modules_valides': e['valides'],
+            'en_difficulte': e['en_difficulte'],
+            'rattrapages': e['rattrapages_count'],
+            'statut': 'Admis' if e_moy >= 10.0 else 'Ajourné',
+        })
+
+    # Distribution des notes de ce niveau
+    tranches = [
+        ('<5', 0, 5),
+        ('5-8', 5, 8),
+        ('8-10', 8, 10),
+        ('10-12', 10, 12),
+        ('12-14', 12, 14),
+        ('14-16', 14, 16),
+        ('16-18', 16, 18),
+        ('18-20', 18, 20.01),
+    ]
+    distribution = []
+    for label, bmin, bmax in tranches:
+        count = qs.filter(moyenne__gte=bmin, moyenne__lt=bmax).count()
+        distribution.append({
+            'tranche': label,
+            'effectif': count,
+            'isBelow10': bmin < 10,
+        })
+
+    # Évolution annuelle pour ce niveau
+    evo_data = (
+        FactEvaluation.objects.filter(id_niv=niveau)
+        .exclude(id_annee__annee_academique__in=['nan', 'None', '', None])
+        .values('id_annee__annee_academique')
+        .annotate(
+            moyenne=Avg('moyenne'),
+            total=Count('id_eval'),
+            admis_count=Count('id_eval', filter=Q(resultat=ResultatChoices.ADMIS)),
+            etudiants=Count('id_etu', distinct=True),
+        )
+        .order_by('id_annee__annee_academique')
+    )
+    evolution = []
+    for row in evo_data:
+        tot = row['total']
+        adm = row['admis_count']
+        t_reussite = round((adm / tot) * 100, 1) if tot > 0 else 0.0
+        m_val = max(0.0, min(20.0, round(float(row['moyenne']), 2))) if row['moyenne'] is not None else None
+        evolution.append({
+            'annee': row['id_annee__annee_academique'],
+            'moyenne': m_val,
+            'taux_reussite': t_reussite,
+            'effectif': row['etudiants'],
+        })
+
+    # Liste des années académiques disponibles pour ce niveau
+    annees = list(
+        FactEvaluation.objects.filter(id_niv=niveau)
+        .exclude(id_annee__annee_academique__in=['nan', 'None', '', None])
+        .values('id_annee', 'id_annee__annee_academique')
+        .distinct()
+        .order_by('-id_annee__annee_academique')
+    )
+
+    return {
+        'niveau': {
+            'id_niv': niveau.id_niv,
+            'code_niv': niveau.code_niv,
+            'libelle_niv': niveau.libelle_niv or niveau.code_niv,
+        },
+        'kpi': {
+            'effectif': effectif,
+            'total_evaluations': total_evals,
+            'total_modules': total_modules,
+            'moyenne_generale': max(0.0, min(20.0, round(float(moy_gen), 2))) if moy_gen is not None else None,
+            'taux_reussite': taux_reussite,
+            'taux_echec': taux_echec,
+            'rattrapages': rattrapages,
+            'moyenne_devoir': max(0.0, min(20.0, round(float(avg_devoir_40) / 0.4, 2))) if avg_devoir_40 is not None else None,
+            'moyenne_examen': max(0.0, min(20.0, round(float(avg_exam), 2))) if avg_exam is not None else None,
+        },
+        'modules': modules_list,
+        'etudiants': etudiants_list,
+        'distribution': distribution,
+        'evolution': evolution,
+        'annees': annees,
+    }
+
+
+def get_module_detail(id_or_code_mod, filters: dict = None) -> dict:
+    """
+    Détail complet d'un module académique :
+    - Infos du module (code, nom, semestre)
+    - KPIs clés (total étudiants, moyenne générale, taux de réussite/échec, devoir vs examen, rattrapages)
+    - Répartition par niveau (quelles promotions suivent ce module et leurs performances)
+    - Liste individuelle des évaluations étudiantes pour ce module
+    - Distribution des notes
+    - Évolution annuelle
+    """
+    from academics.models import DimModule
+
+    if str(id_or_code_mod).isdigit():
+        module = DimModule.objects.filter(pk=int(id_or_code_mod)).first()
+    else:
+        module = DimModule.objects.filter(code_mod__iexact=str(id_or_code_mod).strip()).first()
+
+    if not module:
+        return None
+
+    qs = FactEvaluation.objects.filter(id_mod=module)
+    if filters:
+        filters_copy = {k: v for k, v in filters.items() if k != 'id_mod'}
+        qs = _apply_filters(qs, filters_copy)
+
+    total_evals = qs.count()
+    total_etudiants = qs.values('id_etu').distinct().count()
+    admis = qs.filter(resultat=ResultatChoices.ADMIS).count()
+    ajourne = qs.filter(resultat=ResultatChoices.AJOURNE).count()
+    moy_gen = qs.aggregate(avg=Avg('moyenne'))['avg']
+    avg_devoir_40 = qs.aggregate(avg=Avg('note_devoir_40'))['avg']
+    avg_exam = qs.aggregate(avg=Avg('note_examen'))['avg']
+    rattrapages = qs.filter(note_rattrapage__isnull=False).count()
+
+    taux_reussite = round((admis / total_evals) * 100, 1) if total_evals > 0 else 0.0
+    taux_echec = round((ajourne / total_evals) * 100, 1) if total_evals > 0 else 0.0
+
+    # Niveaux concernés par ce module
+    niv_data = (
+        qs.values('id_niv', 'id_niv__code_niv')
+        .annotate(
+            avg_moyenne=Avg('moyenne'),
+            total=Count('id_eval'),
+            admis_count=Count('id_eval', filter=Q(resultat=ResultatChoices.ADMIS)),
+            etudiants=Count('id_etu', distinct=True),
+        )
+        .order_by('id_niv__code_niv')
+    )
+    niveaux_list = []
+    for n in niv_data:
+        n_tot = n['total']
+        n_adm = n['admis_count']
+        n_taux = round((n_adm / n_tot) * 100, 1) if n_tot > 0 else 0.0
+        n_moy = max(0.0, min(20.0, round(float(n['avg_moyenne']), 2))) if n['avg_moyenne'] is not None else None
+        niveaux_list.append({
+            'id_niv': n['id_niv'],
+            'code_niv': n['id_niv__code_niv'],
+            'moyenne': n_moy,
+            'taux_reussite': n_taux,
+            'taux_echec': round(100.0 - n_taux, 1),
+            'effectif': n['etudiants'],
+        })
+
+    # Liste des évaluations des étudiants pour ce module
+    evals = (
+        qs.select_related('id_etu', 'id_niv', 'id_annee')
+        .order_by('id_annee__annee_academique', 'id_niv__code_niv', 'id_etu__nom')
+    )
+    etudiants_evals = []
+    for ev in evals[:1500]:
+        nom = (ev.id_etu.nom or '').strip()
+        prenom = (ev.id_etu.prenom or '').strip()
+        nom_complet = f"{nom.upper()} {prenom.title()}".strip()
+
+        # Devoir ramené sur 20
+        if ev.note_devoir_40 is not None:
+            note_devoir = round(float(ev.note_devoir_40) / 0.4, 2)
+        elif ev.note_devoir1 is not None:
+            notes = [n for n in [ev.note_devoir1, ev.note_devoir2, ev.note_devoir3, ev.note_devoir4] if n is not None]
+            note_devoir = round(float(sum(notes) / len(notes)), 2) if notes else None
+        else:
+            note_devoir = None
+
+        etudiants_evals.append({
+            'id_eval': ev.id_eval,
+            'id_etu': ev.id_etu_id,
+            'matricule': ev.id_etu.matricule,
+            'nom_complet': nom_complet,
+            'niveau': ev.id_niv.code_niv if ev.id_niv else '',
+            'id_niv': ev.id_niv_id,
+            'annee': ev.id_annee.annee_academique if ev.id_annee else '',
+            'id_annee': ev.id_annee_id,
+            'note_devoir': note_devoir,
+            'note_examen': round(float(ev.note_examen), 2) if ev.note_examen is not None else None,
+            'moyenne': round(float(ev.moyenne), 2) if ev.moyenne is not None else None,
+            'resultat': ev.resultat,
+            'note_rattrapage': round(float(ev.note_rattrapage), 2) if ev.note_rattrapage is not None else None,
+            'moyenne_rattrapage': round(float(ev.moyenne_rattrapage), 2) if ev.moyenne_rattrapage is not None else None,
+            'resultat_rattrapage': ev.resultat_rattrapage,
+        })
+
+    # Distribution des notes
+    tranches = [
+        ('<5', 0, 5),
+        ('5-8', 5, 8),
+        ('8-10', 8, 10),
+        ('10-12', 10, 12),
+        ('12-14', 12, 14),
+        ('14-16', 14, 16),
+        ('16-18', 16, 18),
+        ('18-20', 18, 20.01),
+    ]
+    distribution = []
+    for label, bmin, bmax in tranches:
+        count = qs.filter(moyenne__gte=bmin, moyenne__lt=bmax).count()
+        distribution.append({
+            'tranche': label,
+            'effectif': count,
+            'isBelow10': bmin < 10,
+        })
+
+    # Évolution annuelle pour ce module
+    evo_data = (
+        FactEvaluation.objects.filter(id_mod=module)
+        .exclude(id_annee__annee_academique__in=['nan', 'None', '', None])
+        .values('id_annee__annee_academique')
+        .annotate(
+            moyenne=Avg('moyenne'),
+            total=Count('id_eval'),
+            admis_count=Count('id_eval', filter=Q(resultat=ResultatChoices.ADMIS)),
+            etudiants=Count('id_etu', distinct=True),
+        )
+        .order_by('id_annee__annee_academique')
+    )
+    evolution = []
+    for row in evo_data:
+        tot = row['total']
+        adm = row['admis_count']
+        t_reussite = round((adm / tot) * 100, 1) if tot > 0 else 0.0
+        m_val = max(0.0, min(20.0, round(float(row['moyenne']), 2))) if row['moyenne'] is not None else None
+        evolution.append({
+            'annee': row['id_annee__annee_academique'],
+            'moyenne': m_val,
+            'taux_reussite': t_reussite,
+            'effectif': row['etudiants'],
+        })
+
+    # Années et niveaux distincts pour les filtres
+    annees = list(
+        FactEvaluation.objects.filter(id_mod=module)
+        .exclude(id_annee__annee_academique__in=['nan', 'None', '', None])
+        .values('id_annee', 'id_annee__annee_academique')
+        .distinct()
+        .order_by('-id_annee__annee_academique')
+    )
+
+    return {
+        'module': {
+            'id_mod': module.id_mod,
+            'code_mod': module.code_mod,
+            'nom_mod': module.nom_mod,
+            'semestre': module.semestre,
+        },
+        'kpi': {
+            'total_etudiants': total_etudiants,
+            'total_evaluations': total_evals,
+            'moyenne_generale': max(0.0, min(20.0, round(float(moy_gen), 2))) if moy_gen is not None else None,
+            'taux_reussite': taux_reussite,
+            'taux_echec': taux_echec,
+            'moyenne_devoir': max(0.0, min(20.0, round(float(avg_devoir_40) / 0.4, 2))) if avg_devoir_40 is not None else None,
+            'moyenne_examen': max(0.0, min(20.0, round(float(avg_exam), 2))) if avg_exam is not None else None,
+            'rattrapages': rattrapages,
+        },
+        'niveaux': niveaux_list,
+        'evaluations': etudiants_evals,
+        'distribution': distribution,
+        'evolution': evolution,
+        'annees': annees,
+    }
+

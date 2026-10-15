@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
 import FiltersBar from '../components/dashboard/FiltersBar';
 import { getAnalyseModules } from '../api/dashboardService';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronRight } from 'lucide-react';
 
 export default function ModulesPage() {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState({});
   const [data, setData] = useState({ top_modules: [], attention_modules: [] });
   const [loading, setLoading] = useState(true);
@@ -63,35 +65,48 @@ export default function ModulesPage() {
                       <th className="py-3 px-6">Moyenne</th>
                       <th className="py-3 px-6">Taux de Réussite</th>
                       <th className="py-3 px-6">Étudiants</th>
+                      <th className="py-3 px-6 text-right">Détails</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-cream-100 text-xs">
-                    {topModules.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-cream-50/30 transition-colors">
-                        <td className="py-4 px-6 font-semibold text-ink text-[13px]">
-                          {row.module}
-                        </td>
-                        <td className="py-4 px-6 font-semibold text-ink">
-                          {row.moyenne !== null ? Number(row.moyenne).toFixed(1) : '—'}
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-28 md:w-36 h-2 bg-cream-200 rounded-full overflow-hidden shrink-0">
-                              <div
-                                className="h-full bg-navy-700 rounded-full transition-all duration-500"
-                                style={{ width: `${Math.min(100, Math.max(0, row.taux_reussite))}%` }}
-                              />
+                    {topModules.map((row, idx) => {
+                      const targetId = row.id_mod || row.module;
+                      return (
+                        <tr
+                          key={idx}
+                          onClick={() => navigate(`/modules/${targetId}`)}
+                          className="hover:bg-cream-50/60 transition-colors cursor-pointer group"
+                        >
+                          <td className="py-4 px-6 font-semibold text-ink text-[13px] group-hover:text-navy-700 transition">
+                            {row.module}
+                          </td>
+                          <td className="py-4 px-6 font-semibold text-ink">
+                            {row.moyenne !== null ? Number(row.moyenne).toFixed(1) : '—'}
+                          </td>
+                          <td className="py-4 px-6">
+                            <div className="flex items-center gap-3">
+                              <div className="w-28 md:w-36 h-2 bg-cream-200 rounded-full overflow-hidden shrink-0">
+                                <div
+                                  className="h-full bg-navy-700 rounded-full transition-all duration-500"
+                                  style={{ width: `${Math.min(100, Math.max(0, row.taux_reussite))}%` }}
+                                />
+                              </div>
+                              <span className="font-semibold text-ink text-xs">
+                                {row.taux_reussite}%
+                              </span>
                             </div>
-                            <span className="font-semibold text-ink text-xs">
-                              {row.taux_reussite}%
+                          </td>
+                          <td className="py-4 px-6 font-normal text-ink/80">
+                            {row.etudiants}
+                          </td>
+                          <td className="py-4 px-6 text-right">
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-navy-600 group-hover:text-navy-800 transition">
+                              Fiche module <ChevronRight size={13} />
                             </span>
-                          </div>
-                        </td>
-                        <td className="py-4 px-6 font-normal text-ink/80">
-                          {row.etudiants}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -118,16 +133,22 @@ export default function ModulesPage() {
                       <th className="py-3 px-6">Taux de Réussite</th>
                       <th className="py-3 px-6">Taux d'Échec</th>
                       <th className="py-3 px-6">Risque</th>
+                      <th className="py-3 px-6 text-right">Détails</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-cream-100 text-xs">
                     {attentionModules.map((row, idx) => {
                       const isLowMoy = row.moyenne !== null && row.moyenne < 10.0;
                       const isLowTaux = row.taux_reussite < 55;
+                      const targetId = row.id_mod || row.module;
 
                       return (
-                        <tr key={idx} className="hover:bg-cream-50/30 transition-colors">
-                          <td className="py-4 px-6 font-semibold text-ink text-[13px]">
+                        <tr
+                          key={idx}
+                          onClick={() => navigate(`/modules/${targetId}`)}
+                          className="hover:bg-cream-50/60 transition-colors cursor-pointer group"
+                        >
+                          <td className="py-4 px-6 font-semibold text-ink text-[13px] group-hover:text-navy-700 transition">
                             {row.module}
                           </td>
                           <td
@@ -156,6 +177,11 @@ export default function ModulesPage() {
                               }`}
                             >
                               {row.risque}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6 text-right">
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-navy-600 group-hover:text-navy-800 transition">
+                              Fiche module <ChevronRight size={13} />
                             </span>
                           </td>
                         </tr>

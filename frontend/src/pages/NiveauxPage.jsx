@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
 import FiltersBar from '../components/dashboard/FiltersBar';
 import { getAnalyseNiveaux } from '../api/dashboardService';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronRight } from 'lucide-react';
 
 export default function NiveauxPage() {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState({});
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -95,19 +97,22 @@ export default function NiveauxPage() {
                   <th className="py-4 px-6">Taux d'Échec</th>
                   <th className="py-4 px-6">Rattrapages</th>
                   <th className="py-4 px-6">Niveau de Risque</th>
+                  <th className="py-4 px-6 text-right">Détails</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-cream-100 text-xs">
                 {data.map((row, idx) => {
                   const isMoyLow = row.moyenne !== null && row.moyenne < 10.0;
                   const isTauxLow = row.taux_reussite !== null && row.taux_reussite < 70.0;
+                  const targetId = row.id_niv || row.niveau;
 
                   return (
                     <tr
                       key={idx}
-                      className="hover:bg-cream-50/40 transition-colors"
+                      onClick={() => navigate(`/niveaux/${targetId}`)}
+                      className="hover:bg-cream-50/60 transition-colors cursor-pointer group"
                     >
-                      <td className="py-4 px-6 font-bold text-ink text-[13px]">
+                      <td className="py-4 px-6 font-bold text-ink text-[13px] group-hover:text-navy-700 transition">
                         {row.niveau}
                       </td>
                       <td className="py-4 px-6 font-normal text-ink/80">
@@ -139,6 +144,11 @@ export default function NiveauxPage() {
                       </td>
                       <td className="py-4 px-6">
                         {getRiskBadge(row.risque)}
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-navy-600 group-hover:text-navy-800 transition">
+                          Fiche promotion <ChevronRight size={13} />
+                        </span>
                       </td>
                     </tr>
                   );

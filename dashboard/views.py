@@ -122,4 +122,23 @@ class AnalyseRattrapagesView(APIView):
 class RecommandationsView(APIView):
     """GET /api/dashboard/recommandations/"""
     def get(self, request):
-        return Response(services.get_recommandations(_extract_filters(request)))
+        return Response(services.get_recommandations(_extract_filters(request)))
+
+
+class NiveauDetailView(APIView):
+    """GET /api/dashboard/niveau/{id_or_code}/?id_annee=&semestre="""
+    def get(self, request, id_or_code):
+        data = services.get_niveau_detail(id_or_code, filters=_extract_filters(request))
+        if not data:
+            return Response({'error': f"Niveau '{id_or_code}' introuvable."}, status=404)
+        return Response(data)
+
+
+class ModuleDetailView(APIView):
+    """GET /api/dashboard/module/{id_or_code}/?id_annee=&id_niv=&filiere="""
+    def get(self, request, id_or_code):
+        data = services.get_module_detail(id_or_code, filters=_extract_filters(request))
+        if not data:
+            return Response({'error': f"Module '{id_or_code}' introuvable."}, status=404)
+        return Response(data)
+

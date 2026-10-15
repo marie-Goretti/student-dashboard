@@ -98,11 +98,26 @@ def import_students_file(file_obj) -> dict:
             if row.get('annee_souscription'):
                 defaults['annee_souscription'] = row['annee_souscription']
 
-            obj, created = DimEtudiant.objects.update_or_create(
-                matricule=matricule,
-                defaults=defaults,
-            )
-            report['created' if created else 'updated'] += 1
+            # Recherche par matricule OU par nom + prénom normalisés
+            existing = DimEtudiant.objects.filter(matricule=matricule).first()
+            if not existing and defaults['nom'] and defaults['prenom']:
+                from .import_grades import _normalize_name
+                norm_nom = _normalize_name(defaults['nom'])
+                norm_prenom = _normalize_name(defaults['prenom'])
+                for candidate in DimEtudiant.objects.all():
+                    if _normalize_name(candidate.nom) == norm_nom and _normalize_name(candidate.prenom) == norm_prenom:
+                        existing = candidate
+                        break
+
+            if existing:
+                for k, v in defaults.items():
+                    if v is not None:
+                        setattr(existing, k, v)
+                existing.save()
+                report['updated'] += 1
+            else:
+                DimEtudiant.objects.create(matricule=matricule, **defaults)
+                report['created'] += 1
 
         except Exception as e:
             report['errors'].append({

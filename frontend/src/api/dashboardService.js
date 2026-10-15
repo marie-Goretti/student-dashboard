@@ -78,3 +78,13 @@ export const getRecommandations = async (filters = {}) => {
   const { data } = await axiosClient.get('/dashboard/recommandations/', { params: filters });
   return data;
 };
+
+export const getNiveauDetail = async (idOrCode, filters = {}) => {
+  const { data } = await axiosClient.get(`/dashboard/niveau/${idOrCode}/`, { params: filters });
+  return data;
+};
+
+export const getModuleDetail = async (idOrCode, filters = {}) => {
+  const { data } = await axiosClient.get(`/dashboard/module/${idOrCode}/`, { params: filters });
+  return data;
+};
