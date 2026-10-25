@@ -1,16 +1,18 @@
 """
-Service d'import du fichier Master Étudiants (.xlsx / .csv).
+Service d'import optimisé du fichier Master Étudiants (.xlsx / .csv).
 Règle : UPSERT dans dim_etudiant basé sur le matricule.
 Extrait automatiquement l'année académique depuis le nom du fichier pour l'ajouter
 aux filtres d'année (dim_annee_academique) s'il n'y figure pas déjà.
+Optimisé avec indexation mémoire pour un traitement ultra-rapide.
 """
 import pandas as pd
 from django.db import transaction
 from students.models import DimEtudiant
 from .academic_year import extract_academic_year, ensure_academic_year_exists
+from .import_grades import _normalize_name
 
 
-# Colonnes attendues dans le fichier (adapter si tes en-têtes diffèrent)
+# Colonnes attendues dans le fichier
 EXPECTED_COLUMNS = {
     'matricule': 'matricule',
     'nom': 'nom',
@@ -28,7 +30,6 @@ class StudentImportError(Exception):
 
 def _clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """Nettoie et normalise le dataframe brut."""
-    # Normaliser les noms de colonnes (minuscules, sans espaces)
     df.columns = [str(c).strip().lower().replace(' ', '_') for c in df.columns]
 
     missing = set(['matricule', 'nom', 'prenom']) - set(df.columns)
@@ -37,14 +38,11 @@ def _clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             f"Colonnes obligatoires manquantes dans le fichier : {missing}"
         )
 
-    # Supprimer les lignes totalement vides
     df = df.dropna(how='all')
 
-    # Nettoyer le matricule (obligatoire pour l'upsert)
     df['matricule'] = df['matricule'].astype(str).str.strip().str.upper()
     df = df[df['matricule'].notna() & (df['matricule'] != '') & (df['matricule'] != 'NAN')]
 
-    # Date de naissance -> format date propre
     if 'date_naissance' in df.columns:
         df['date_naissance'] = pd.to_datetime(df['date_naissance'], errors='coerce').dt.date
 
@@ -57,13 +55,6 @@ def import_students_file(file_obj, filename: str = None) -> dict:
     Importe le fichier master étudiants avec upsert par matricule.
     Détecte l'année académique dans le nom du fichier et l'insère dans
     dim_annee_academique (filtre année) si elle n'y est pas déjà.
-
-    Args:
-        file_obj: fichier .xlsx / .csv (uploadé via DRF, InMemoryUploadedFile ou ouvert)
-        filename: nom optionnel du fichier pour l'extraction de l'année
-
-    Returns:
-        dict: rapport d'exécution {created, updated, errors, total, annee_academique, annee_created}
     """
     effective_filename = filename or getattr(file_obj, 'name', '')
 
@@ -72,16 +63,19 @@ def import_students_file(file_obj, filename: str = None) -> dict:
 
     # 2. Lecture du fichier Excel ou CSV
     try:
-        fn_lower = str(effective_filename).lower()
-        if fn_lower.endswith('.csv'):
-            try:
-                df = pd.read_csv(file_obj, encoding='utf-8')
-            except UnicodeDecodeError:
-                if hasattr(file_obj, 'seek'):
-                    file_obj.seek(0)
-                df = pd.read_csv(file_obj, encoding='latin1')
-        else:
+        if isinstance(file_obj, pd.ExcelFile):
             df = pd.read_excel(file_obj)
+        else:
+            fn_lower = str(effective_filename).lower()
+            if fn_lower.endswith('.csv'):
+                try:
+                    df = pd.read_csv(file_obj, encoding='utf-8')
+                except UnicodeDecodeError:
+                    if hasattr(file_obj, 'seek'):
+                        file_obj.seek(0)
+                    df = pd.read_csv(file_obj, encoding='latin1')
+            else:
+                df = pd.read_excel(file_obj, engine='openpyxl')
     except Exception as e:
         raise StudentImportError(f"Impossible de lire le fichier : {e}")
 
@@ -111,7 +105,19 @@ def import_students_file(file_obj, filename: str = None) -> dict:
         'annee_created': annee_created,
     }
 
-    for idx, row in df.iterrows():
+    # Pré-chargement des étudiants en mémoire pour éviter les requêtes N+1 dans la boucle
+    all_students = list(DimEtudiant.objects.all())
+    matricule_map = {e.matricule: e for e in all_students}
+    name_map = {}
+    for e in all_students:
+        if e.nom and e.prenom:
+            k = (_normalize_name(e.nom), _normalize_name(e.prenom))
+            if k not in name_map:
+                name_map[k] = e
+
+    records = df.to_dict('records')
+
+    for idx, row in enumerate(records):
         try:
             matricule = row['matricule']
 
@@ -139,23 +145,16 @@ def import_students_file(file_obj, filename: str = None) -> dict:
                 'mail': mail_val,
             }
 
-            # Si l'année de souscription est explicite dans la ligne, on l'utilise.
-            # Sinon, on applique l'année académique déduite du nom du fichier.
             if clean_annee:
                 defaults['annee_souscription'] = clean_annee
             elif academic_year:
                 defaults['annee_souscription'] = academic_year
 
-            # Recherche par matricule OU par nom + prénom normalisés
-            existing = DimEtudiant.objects.filter(matricule=matricule).first()
+            # Recherche instantanée en mémoire
+            existing = matricule_map.get(matricule)
             if not existing and defaults['nom'] and defaults['prenom']:
-                from .import_grades import _normalize_name
-                norm_nom = _normalize_name(defaults['nom'])
-                norm_prenom = _normalize_name(defaults['prenom'])
-                for candidate in DimEtudiant.objects.all():
-                    if _normalize_name(candidate.nom) == norm_nom and _normalize_name(candidate.prenom) == norm_prenom:
-                        existing = candidate
-                        break
+                norm_key = (_normalize_name(defaults['nom']), _normalize_name(defaults['prenom']))
+                existing = name_map.get(norm_key)
 
             if existing:
                 is_existing_annee_valid = (
@@ -163,7 +162,6 @@ def import_students_file(file_obj, filename: str = None) -> dict:
                     and str(existing.annee_souscription).strip().lower() not in ('nan', 'none', '', 'null')
                 )
                 for k, v in defaults.items():
-                    # Ne pas écraser une année de souscription valide déjà enregistrée avec le fallback
                     if k == 'annee_souscription' and is_existing_annee_valid and not clean_annee:
                         continue
                     if v is not None:
@@ -171,12 +169,15 @@ def import_students_file(file_obj, filename: str = None) -> dict:
                 existing.save()
                 report['updated'] += 1
             else:
-                DimEtudiant.objects.create(matricule=matricule, **defaults)
+                new_etu = DimEtudiant.objects.create(matricule=matricule, **defaults)
+                matricule_map[matricule] = new_etu
+                if defaults['nom'] and defaults['prenom']:
+                    name_map[(_normalize_name(defaults['nom']), _normalize_name(defaults['prenom']))] = new_etu
                 report['created'] += 1
 
         except Exception as e:
             report['errors'].append({
-                'ligne': idx + 2,  # +2 car Excel commence à 1 + ligne d'en-tête
+                'ligne': idx + 2,
                 'matricule': row.get('matricule', 'N/A'),
                 'erreur': str(e),
             })

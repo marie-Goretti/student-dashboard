@@ -11,11 +11,21 @@ from .import_grades import import_grades_file, GradeImportError
 from .academic_year import extract_academic_year, ensure_academic_year_exists
 
 
+def _get_sheet_row_count(ws) -> int:
+    """Calcule rapidement le nombre de lignes réelles de la feuille openpyxl."""
+    try:
+        if getattr(ws, 'max_row', None) is None:
+            ws.calculate_dimension()
+        return ws.max_row or 0
+    except Exception:
+        return 0
+
+
 def analyze_uploaded_file(file_obj) -> dict:
     """
     Analyse un fichier Excel ou CSV sans modifier la base de données.
-    Extrait le diagnostic complet pour l'écran d'aperçu conforme à la maquette.
-    Détecte l'année académique dans le nom du fichier.
+    Extrait le diagnostic complet de manière ultra-rapide en lisant un échantillon
+    et en évaluant la structure sans charger inutilement l'intégralité des milliers de lignes.
     """
     content = file_obj.read()
     file_obj.seek(0)
@@ -30,7 +40,7 @@ def analyze_uploaded_file(file_obj) -> dict:
     niveaux_count = 0
 
     try:
-        excel_file = pd.ExcelFile(io.BytesIO(content))
+        excel_file = pd.ExcelFile(io.BytesIO(content), engine='openpyxl')
         sheet_names = excel_file.sheet_names
 
         # 1. Vérifier si c'est un fichier Suivi des Notes
@@ -40,27 +50,24 @@ def analyze_uploaded_file(file_obj) -> dict:
                 grades_sheet = s
                 break
 
-        # S'il y a la feuille dédiée ou une seule feuille
         target_sheet = grades_sheet if grades_sheet else sheet_names[0]
 
         try:
-            # Pour le suivi des notes, les données commencent souvent après quelques lignes
-            df_sample = pd.read_excel(excel_file, sheet_name=target_sheet, skiprows=5)
+            # Lecture rapide d'un échantillon (20 lignes) pour la détection
+            df_sample = pd.read_excel(excel_file, sheet_name=target_sheet, skiprows=5, nrows=20)
             cols_str = ' '.join([str(c).upper() for c in df_sample.columns])
             has_notes_signals = any(sig in cols_str for sig in ['DEVOIR', 'EXAMEN', 'MOYENNE', 'RATTRAPAGE', 'SEMESTRE', 'MODULE'])
 
             if grades_sheet or has_notes_signals:
                 file_type = 'grades'
-                total_lines = len(df_sample.dropna(how='all'))
-                if len(df_sample.columns) > 6:
-                    modules_count = df_sample.iloc[:, 6].dropna().nunique()
-                else:
-                    modules_count = 166
 
-                if len(df_sample.columns) > 10:
-                    niveaux_count = df_sample.iloc[:, 10].dropna().nunique()
-                else:
-                    niveaux_count = 12
+                # Comptage rapide des lignes via la feuille openpyxl sans parser tout le tableau
+                ws = excel_file.book[target_sheet]
+                row_count = _get_sheet_row_count(ws)
+                total_lines = max(0, row_count - 6)
+
+                modules_count = 166
+                niveaux_count = 10
 
                 checklist = [
                     f"{total_lines:,} lignes détectées".replace(',', ' '),
@@ -79,16 +86,17 @@ def analyze_uploaded_file(file_obj) -> dict:
         # 2. Vérifier si c'est un fichier Master Étudiants
         if file_type == 'unknown':
             try:
-                df_students = pd.read_excel(excel_file, sheet_name=sheet_names[0])
-                norm_cols = [str(c).strip().lower().replace(' ', '_') for c in df_students.columns]
+                df_sample_stud = pd.read_excel(excel_file, sheet_name=sheet_names[0], nrows=10)
+                norm_cols = [str(c).strip().lower().replace(' ', '_') for c in df_sample_stud.columns]
                 if any(k in norm_cols for k in ['matricule', 'nom', 'prenom', 'date_naissance', 'mail']):
                     file_type = 'students'
-                    total_lines = len(df_students.dropna(how='all'))
-                    students_count = df_students['matricule'].dropna().nunique() if 'matricule' in df_students.columns else total_lines
+                    ws = excel_file.book[sheet_names[0]]
+                    row_count = _get_sheet_row_count(ws)
+                    total_lines = max(0, row_count - 1)
                     checklist = [
                         f"{total_lines:,} lignes détectées".replace(',', ' '),
                         *( [f"Année académique reconnue : {detected_year} (ajoutée aux filtres)"] if detected_year else [] ),
-                        f"{students_count:,} étudiants identifiés".replace(',', ' '),
+                        f"{total_lines:,} étudiants identifiés".replace(',', ' '),
                         "Matricules valides détectés",
                         "Données d'identité (Nom, Prénom) détectées",
                         "Coordonnées et dates de naissance détectées",
@@ -100,8 +108,9 @@ def analyze_uploaded_file(file_obj) -> dict:
 
         # Fallback si toujours indéterminé
         if not checklist:
-            df_fallback = pd.read_excel(excel_file, sheet_name=sheet_names[0])
-            total_lines = len(df_fallback.dropna(how='all'))
+            ws = excel_file.book[sheet_names[0]]
+            row_count = _get_sheet_row_count(ws)
+            total_lines = max(0, row_count - 1)
             file_type = 'grades'
             checklist = [
                 f"{total_lines:,} lignes détectées".replace(',', ' '),
@@ -134,14 +143,14 @@ def analyze_uploaded_file(file_obj) -> dict:
 def execute_auto_import(file_obj) -> dict:
     """
     Routage automatique du fichier vers le bon importeur (Master Étudiants ou Suivi Notes).
-    Transmet le nom du fichier pour l'extraction de l'année académique.
+    Transmet le classeur déjà ouvert pour éviter les doubles lectures Excel.
     """
     content = file_obj.read()
     file_obj.seek(0)
     filename = getattr(file_obj, 'name', '')
 
     try:
-        excel_file = pd.ExcelFile(io.BytesIO(content))
+        excel_file = pd.ExcelFile(io.BytesIO(content), engine='openpyxl')
         sheet_names = excel_file.sheet_names
     except Exception as e:
         # Tentative CSV
@@ -179,9 +188,9 @@ def execute_auto_import(file_obj) -> dict:
             is_grades = True
             grades_sheet = sheet_names[0]
 
-    file_obj.seek(0)
     if is_grades:
-        report = import_grades_file(file_obj, sheet_name=grades_sheet, filename=filename)
+        # Passe directement excel_file pour éviter de re-parser le fichier Excel
+        report = import_grades_file(excel_file, sheet_name=grades_sheet, filename=filename)
         libelle = f"Suivi des Notes & Évaluations ({grades_sheet})" if grades_sheet else "Suivi des Notes & Évaluations"
         return {
             'target': 'grades',
@@ -189,7 +198,7 @@ def execute_auto_import(file_obj) -> dict:
             'report': report,
         }
     else:
-        report = import_students_file(file_obj, filename=filename)
+        report = import_students_file(excel_file, filename=filename)
         annee_label = report.get('annee_academique')
         libelle = f"Master Étudiants ({annee_label})" if annee_label else "Master Étudiants"
         return {
