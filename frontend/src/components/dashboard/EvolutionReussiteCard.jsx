@@ -2,15 +2,8 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 
-export default function EvolutionReussiteCard({ data, currentPeriod = '2024-2025' }) {
-  // Données de secours réalistes si non encore disponibles (sur 20)
-  const defaultEvolution = [
-    { annee: '2022-2023', moyenne: 10.8, taux_reussite: 60.5 },
-    { annee: '2023-2024', moyenne: 11.97, taux_reussite: 71.5 },
-    { annee: '2024-2025', moyenne: 11.24, taux_reussite: 69.1 },
-  ];
-
-  const chartData = data && data.length ? data : defaultEvolution;
+export default function EvolutionReussiteCard({ data = [], currentPeriod = '' }) {
+  const chartData = data && data.length ? data : [];
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -45,51 +38,61 @@ export default function EvolutionReussiteCard({ data, currentPeriod = '2024-2025
             Comparaison des moyennes générales sur 20 par année
           </p>
         </div>
+        {currentPeriod && (
+          <span className="text-[11px] font-semibold text-navy-600 bg-navy-50 border border-navy-100 px-2.5 py-1 rounded-full">
+            {currentPeriod}
+          </span>
+        )}
       </div>
 
       {/* Graphique linéaire (Line / Area chart) */}
-      <div className="h-[250px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={chartData}
-            margin={{ top: 12, right: 12, left: -10, bottom: 6 }}
-          >
-            <defs>
-              <linearGradient id="moyLinearGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#2C4A6E" stopOpacity={0.22} />
-                <stop offset="95%" stopColor="#2C4A6E" stopOpacity={0.0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} stroke="#EFEAE0" strokeDasharray="3 3" />
-            <XAxis
-              dataKey="annee"
-              tick={{ fontSize: 11, fill: '#0B1220', fillOpacity: 0.65 }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              domain={[0, 20]}
-              ticks={[0, 5, 10, 15, 20]}
-              tick={{ fontSize: 11, fill: '#0B1220', fillOpacity: 0.5 }}
-              tickFormatter={(v) => `${v}`}
-              axisLine={false}
-              tickLine={false}
-              width={36}
-            />
-            <ReferenceLine y={10} stroke="#7A1620" strokeDasharray="3 3" strokeOpacity={0.5} />
-            <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="moyenne"
-              name="Moyenne générale"
-              stroke="#2C4A6E"
-              strokeWidth={3}
-              fill="url(#moyLinearGrad)"
-              dot={{ r: 5, fill: '#2C4A6E', stroke: '#ffffff', strokeWidth: 2 }}
-              activeDot={{ r: 7, fill: '#7A1620', stroke: '#ffffff', strokeWidth: 2 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+      <div className="h-[250px] w-full flex items-center justify-center">
+        {chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={chartData}
+              margin={{ top: 12, right: 12, left: -10, bottom: 6 }}
+            >
+              <defs>
+                <linearGradient id="moyLinearGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#2C4A6E" stopOpacity={0.22} />
+                  <stop offset="95%" stopColor="#2C4A6E" stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke="#EFEAE0" strokeDasharray="3 3" />
+              <XAxis
+                dataKey="annee"
+                tick={{ fontSize: 11, fill: '#0B1220', fillOpacity: 0.65 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                domain={[0, 20]}
+                ticks={[0, 5, 10, 15, 20]}
+                tick={{ fontSize: 11, fill: '#0B1220', fillOpacity: 0.5 }}
+                axisLine={false}
+                tickLine={false}
+                width={36}
+              />
+              <ReferenceLine y={10} stroke="#7A1620" strokeDasharray="3 3" strokeOpacity={0.5} />
+              <Tooltip content={<CustomTooltip />} />
+              <Area
+                type="monotone"
+                dataKey="moyenne"
+                name="Moyenne générale"
+                stroke="#2C4A6E"
+                strokeWidth={3}
+                fill="url(#moyLinearGrad)"
+                dot={{ r: 5, fill: '#2C4A6E', stroke: '#ffffff', strokeWidth: 2 }}
+                activeDot={{ r: 7, fill: '#7A1620', stroke: '#ffffff', strokeWidth: 2 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="text-center text-xs text-ink/40 py-12">
+            Aucune donnée d'évolution disponible pour le moment.
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,24 +1,27 @@
 """
 Service de détection automatique et de routage intelligent des imports Excel/CSV.
 Reconnaît automatiquement :
-- Fichier Master Étudiants -> table dim_etudiant
+- Fichier Master Étudiants -> table dim_etudiant (et dimension dim_annee_academique déduite du nom)
 - Fichier Suivi des Notes -> tables dim_niveau, dim_module, dim_annee_academique, fact_evaluation
 """
 import io
 import pandas as pd
 from .import_students import import_students_file, StudentImportError
 from .import_grades import import_grades_file, GradeImportError
+from .academic_year import extract_academic_year, ensure_academic_year_exists
 
 
 def analyze_uploaded_file(file_obj) -> dict:
     """
     Analyse un fichier Excel ou CSV sans modifier la base de données.
     Extrait le diagnostic complet pour l'écran d'aperçu conforme à la maquette.
+    Détecte l'année académique dans le nom du fichier.
     """
     content = file_obj.read()
     file_obj.seek(0)
 
     filename = getattr(file_obj, 'name', 'fichier_academique.xlsx')
+    detected_year = extract_academic_year(filename=filename)
 
     checklist = []
     file_type = 'unknown'
@@ -61,6 +64,7 @@ def analyze_uploaded_file(file_obj) -> dict:
 
                 checklist = [
                     f"{total_lines:,} lignes détectées".replace(',', ' '),
+                    *( [f"Année académique : {detected_year}"] if detected_year else [] ),
                     f"{modules_count} modules détectés",
                     f"{niveaux_count} niveaux détectés",
                     "Notes de devoir détectées",
@@ -83,6 +87,7 @@ def analyze_uploaded_file(file_obj) -> dict:
                     students_count = df_students['matricule'].dropna().nunique() if 'matricule' in df_students.columns else total_lines
                     checklist = [
                         f"{total_lines:,} lignes détectées".replace(',', ' '),
+                        *( [f"Année académique reconnue : {detected_year} (ajoutée aux filtres)"] if detected_year else [] ),
                         f"{students_count:,} étudiants identifiés".replace(',', ' '),
                         "Matricules valides détectés",
                         "Données d'identité (Nom, Prénom) détectées",
@@ -100,21 +105,24 @@ def analyze_uploaded_file(file_obj) -> dict:
             file_type = 'grades'
             checklist = [
                 f"{total_lines:,} lignes détectées".replace(',', ' '),
+                *( [f"Année académique : {detected_year}"] if detected_year else [] ),
                 "Données académiques reconnues",
                 "Votre fichier est prêt à être analysé.",
             ]
 
-    except Exception as e:
-        # Si lecture échoue
+    except Exception:
+        # Si lecture échoue (ex: CSV ou format alternatif)
         checklist = [
             "Fichier analysé avec succès",
+            *( [f"Année académique reconnue : {detected_year}"] if detected_year else [] ),
             "Prêt pour le traitement automatique",
         ]
-        file_type = 'grades'
+        file_type = 'students' if ('etu' in filename.lower() or 'master' in filename.lower()) else 'grades'
 
     return {
         'filename': filename,
         'file_type': file_type,
+        'annee_academique': detected_year,
         'total_lines': total_lines,
         'modules_count': modules_count,
         'niveaux_count': niveaux_count,
@@ -126,14 +134,27 @@ def analyze_uploaded_file(file_obj) -> dict:
 def execute_auto_import(file_obj) -> dict:
     """
     Routage automatique du fichier vers le bon importeur (Master Étudiants ou Suivi Notes).
+    Transmet le nom du fichier pour l'extraction de l'année académique.
     """
     content = file_obj.read()
     file_obj.seek(0)
+    filename = getattr(file_obj, 'name', '')
 
     try:
         excel_file = pd.ExcelFile(io.BytesIO(content))
         sheet_names = excel_file.sheet_names
     except Exception as e:
+        # Tentative CSV
+        if filename.lower().endswith('.csv'):
+            file_obj.seek(0)
+            report = import_students_file(file_obj, filename=filename)
+            annee_label = report.get('annee_academique')
+            libelle = f"Master Étudiants ({annee_label})" if annee_label else "Master Étudiants"
+            return {
+                'target': 'students',
+                'type_libelle': libelle,
+                'report': report,
+            }
         raise GradeImportError(f"Format de fichier non lisible : {e}")
 
     # Détection de la feuille Notes
@@ -160,7 +181,7 @@ def execute_auto_import(file_obj) -> dict:
 
     file_obj.seek(0)
     if is_grades:
-        report = import_grades_file(file_obj, sheet_name=grades_sheet)
+        report = import_grades_file(file_obj, sheet_name=grades_sheet, filename=filename)
         libelle = f"Suivi des Notes & Évaluations ({grades_sheet})" if grades_sheet else "Suivi des Notes & Évaluations"
         return {
             'target': 'grades',
@@ -168,9 +189,11 @@ def execute_auto_import(file_obj) -> dict:
             'report': report,
         }
     else:
-        report = import_students_file(file_obj)
+        report = import_students_file(file_obj, filename=filename)
+        annee_label = report.get('annee_academique')
+        libelle = f"Master Étudiants ({annee_label})" if annee_label else "Master Étudiants"
         return {
             'target': 'students',
-            'type_libelle': 'Master Étudiants',
+            'type_libelle': libelle,
             'report': report,
         }

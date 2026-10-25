@@ -1,12 +1,33 @@
+import { useState, useEffect } from 'react';
 import { Search, Bell, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { getAnnees } from '../../api/academicsService';
 
 export default function HeaderBar({
   title = 'Tableau de bord académique',
-  currentAnnee = '2024-2025',
+  currentAnnee,
   subtitle,
 }) {
   const { user } = useAuth() || {};
+  const [dynamicAnnee, setDynamicAnnee] = useState('');
+
+  useEffect(() => {
+    if (!currentAnnee && !subtitle) {
+      getAnnees()
+        .then((data) => {
+          const list = (data.results ?? data)
+            .filter((a) => a.annee_academique && a.annee_academique !== 'nan' && a.annee_academique !== 'None')
+            .sort((a, b) => String(b.annee_academique).localeCompare(String(a.annee_academique)));
+          if (list.length > 0) {
+            setDynamicAnnee(list[0].annee_academique);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [currentAnnee, subtitle]);
+
+  const activeAnnee = currentAnnee || dynamicAnnee;
+  const activeSubtitle = subtitle || (activeAnnee ? `Année académique ${activeAnnee}` : 'Performances académiques');
 
   return (
     <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -16,7 +37,7 @@ export default function HeaderBar({
           {title}
         </h1>
         <p className="text-xs md:text-sm text-ink/50 mt-0.5">
-          {subtitle || `Année académique ${currentAnnee}`}
+          {activeSubtitle}
         </p>
       </div>
 

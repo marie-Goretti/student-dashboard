@@ -4,7 +4,7 @@ import HeaderBar from '../components/layout/HeaderBar';
 export default function PlaceholderPage({ title, description }) {
   return (
     <MainLayout>
-      <HeaderBar currentAnnee="2024-2025" />
+      <HeaderBar />
       <div className="bg-white rounded-2xl border border-cream-200 p-8 shadow-xs flex flex-col items-center justify-center min-h-[400px] text-center">
         <div className="w-12 h-12 rounded-2xl bg-cream-100 flex items-center justify-center text-ink/40 mb-4 font-serif text-lg font-bold">
           EP

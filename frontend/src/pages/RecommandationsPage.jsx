@@ -178,7 +178,6 @@ export default function RecommandationsPage() {
       {/* 1. HeaderBar fidèle à EduPulse */}
       <HeaderBar
         title="Recommandations décisionnelles"
-        subtitle="Année académique 2024–2025"
       />
 
       {/* 2. Filtres dynamiques : Année, Programme, Niveau, Module */}

@@ -18,14 +18,15 @@ class ImportStudentsView(APIView):
                 {'detail': "Aucun fichier fourni (champ 'file' attendu)."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        if not file_obj.name.endswith(('.xlsx', '.xls')):
+        if not file_obj.name.endswith(('.xlsx', '.xls', '.csv')):
             return Response(
-                {'detail': "Format de fichier invalide. Seuls les .xlsx/.xls sont acceptés."},
+                {'detail': "Format de fichier invalide. Seuls les .xlsx, .xls et .csv sont acceptés."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
-            report = import_students_file(file_obj)
+            filename = getattr(file_obj, 'name', '')
+            report = import_students_file(file_obj, filename=filename)
         except StudentImportError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
@@ -48,14 +49,15 @@ class ImportGradesView(APIView):
                 {'detail': "Aucun fichier fourni (champ 'file' attendu)."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        if not file_obj.name.endswith(('.xlsx', '.xls')):
+        if not file_obj.name.endswith(('.xlsx', '.xls', '.csv')):
             return Response(
-                {'detail': "Format de fichier invalide. Seuls les .xlsx/.xls sont acceptés."},
+                {'detail': "Format de fichier invalide. Seuls les .xlsx, .xls et .csv sont acceptés."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
-            report = import_grades_file(file_obj)
+            filename = getattr(file_obj, 'name', '')
+            report = import_grades_file(file_obj, filename=filename)
         except GradeImportError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:

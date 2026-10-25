@@ -160,7 +160,6 @@ export default function RattrapagesPage() {
       {/* 1. HeaderBar fidèle à EduPulse */}
       <HeaderBar
         title="Analyse des rattrapages"
-        subtitle="Année académique 2024–2025"
       />
 
       {/* 2. Filtres : Année, Programme, Niveau, Semestre, Module + Réinitialiser */}

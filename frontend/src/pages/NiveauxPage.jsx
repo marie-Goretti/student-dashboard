@@ -65,7 +65,7 @@ export default function NiveauxPage() {
   return (
     <MainLayout>
       {/* En-tête de la page */}
-      <HeaderBar title="Analyse des niveaux" currentAnnee="2024–2025" />
+      <HeaderBar title="Analyse des niveaux" />
 
       {/* Barre de filtres (sans résultat, sans niveau car niveau est la dimension de ligne) */}
       <FiltersBar

@@ -118,7 +118,14 @@ export default function NiveauDetailPage() {
 
   return (
     <MainLayout>
-      <HeaderBar title={`Fiche Niveau : ${niveau.code_niv}`} currentAnnee="2024–2025" />
+      <HeaderBar
+        title={`Fiche Niveau : ${niveau.code_niv}`}
+        currentAnnee={
+          annees?.find((a) => String(a.id_annee) === String(filters.id_annee))?.id_annee__annee_academique ||
+          annees?.[0]?.id_annee__annee_academique ||
+          ''
+        }
+      />
 
       {/* Navigation retour & Breadcrumbs */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">

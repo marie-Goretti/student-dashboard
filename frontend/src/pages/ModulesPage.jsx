@@ -34,7 +34,7 @@ export default function ModulesPage() {
   return (
     <MainLayout>
       {/* En-tête */}
-      <HeaderBar title="Analyse des modules" currentAnnee="2024–2025" />
+      <HeaderBar title="Analyse des modules" />
 
       {/* Barre de filtres (sans résultat) */}
       <FiltersBar filters={filters} onChange={setFilters} />

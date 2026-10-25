@@ -1,13 +1,16 @@
 """
-Service d'import du fichier Master Étudiants (.xlsx).
+Service d'import du fichier Master Étudiants (.xlsx / .csv).
 Règle : UPSERT dans dim_etudiant basé sur le matricule.
+Extrait automatiquement l'année académique depuis le nom du fichier pour l'ajouter
+aux filtres d'année (dim_annee_academique) s'il n'y figure pas déjà.
 """
 import pandas as pd
 from django.db import transaction
 from students.models import DimEtudiant
+from .academic_year import extract_academic_year, ensure_academic_year_exists
 
 
-# Colonnes attendues dans le fichier Excel (adapter si tes en-têtes diffèrent)
+# Colonnes attendues dans le fichier (adapter si tes en-têtes diffèrent)
 EXPECTED_COLUMNS = {
     'matricule': 'matricule',
     'nom': 'nom',
@@ -41,62 +44,107 @@ def _clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df['matricule'] = df['matricule'].astype(str).str.strip().str.upper()
     df = df[df['matricule'].notna() & (df['matricule'] != '') & (df['matricule'] != 'NAN')]
 
-    # Nettoyer texte
-    for col in ['nom', 'prenom', 'mail']:
-        if col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
-            df[col] = df[col].replace({'nan': None, 'None': None, '': None})
-
     # Date de naissance -> format date propre
     if 'date_naissance' in df.columns:
         df['date_naissance'] = pd.to_datetime(df['date_naissance'], errors='coerce').dt.date
-
-    # annee_souscription -> string propre ou None
-    if 'annee_souscription' in df.columns:
-        df['annee_souscription'] = df['annee_souscription'].astype(str).str.strip()
-        df['annee_souscription'] = df['annee_souscription'].replace(
-            {'nan': None, 'None': None, '': None}
-        )
-    else:
-        df['annee_souscription'] = None
 
     return df
 
 
 @transaction.atomic
-def import_students_file(file_obj) -> dict:
+def import_students_file(file_obj, filename: str = None) -> dict:
     """
     Importe le fichier master étudiants avec upsert par matricule.
+    Détecte l'année académique dans le nom du fichier et l'insère dans
+    dim_annee_academique (filtre année) si elle n'y est pas déjà.
 
     Args:
-        file_obj: fichier .xlsx (uploadé via DRF, InMemoryUploadedFile)
+        file_obj: fichier .xlsx / .csv (uploadé via DRF, InMemoryUploadedFile ou ouvert)
+        filename: nom optionnel du fichier pour l'extraction de l'année
 
     Returns:
-        dict: rapport d'exécution {created, updated, errors, total}
+        dict: rapport d'exécution {created, updated, errors, total, annee_academique, annee_created}
     """
+    effective_filename = filename or getattr(file_obj, 'name', '')
+
+    # 1. Extraction de l'année académique depuis le nom du fichier
+    academic_year = extract_academic_year(filename=effective_filename)
+
+    # 2. Lecture du fichier Excel ou CSV
     try:
-        df = pd.read_excel(file_obj, engine='openpyxl')
+        fn_lower = str(effective_filename).lower()
+        if fn_lower.endswith('.csv'):
+            try:
+                df = pd.read_csv(file_obj, encoding='utf-8')
+            except UnicodeDecodeError:
+                if hasattr(file_obj, 'seek'):
+                    file_obj.seek(0)
+                df = pd.read_csv(file_obj, encoding='latin1')
+        else:
+            df = pd.read_excel(file_obj)
     except Exception as e:
-        raise StudentImportError(f"Impossible de lire le fichier Excel : {e}")
+        raise StudentImportError(f"Impossible de lire le fichier : {e}")
 
     df = _clean_dataframe(df)
 
-    report = {'created': 0, 'updated': 0, 'errors': [], 'total': len(df)}
+    # 3. Fallback : si l'année n'était pas dans le nom du fichier, chercher dans les données de souscription
+    if not academic_year and 'annee_souscription' in df.columns:
+        for y_candidate in df['annee_souscription'].dropna().unique():
+            if str(y_candidate).strip().lower() not in ('nan', 'none', ''):
+                extracted = extract_academic_year(text=str(y_candidate))
+                if extracted:
+                    academic_year = extracted
+                    break
+
+    # 4. Enregistrement de l'année académique dans les filtres (DimAnneeAcademique)
+    annee_obj = None
+    annee_created = False
+    if academic_year:
+        annee_obj, annee_created = ensure_academic_year_exists(academic_year)
+
+    report = {
+        'created': 0,
+        'updated': 0,
+        'errors': [],
+        'total': len(df),
+        'annee_academique': academic_year,
+        'annee_created': annee_created,
+    }
 
     for idx, row in df.iterrows():
         try:
             matricule = row['matricule']
+
+            raw_nom = row.get('nom')
+            nom_val = str(raw_nom).strip() if pd.notna(raw_nom) and str(raw_nom).strip().lower() not in ('nan', 'none') else ''
+
+            raw_prenom = row.get('prenom')
+            prenom_val = str(raw_prenom).strip() if pd.notna(raw_prenom) and str(raw_prenom).strip().lower() not in ('nan', 'none') else ''
+
+            raw_mail = row.get('mail')
+            mail_val = str(raw_mail).strip() if pd.notna(raw_mail) and str(raw_mail).strip().lower() not in ('nan', 'none') else None
+
+            # Nettoyage de annee_souscription pour cette ligne
+            raw_annee = row.get('annee_souscription')
+            clean_annee = None
+            if pd.notna(raw_annee):
+                s_annee = str(raw_annee).strip()
+                if s_annee.lower() not in ('nan', 'none', '', 'null'):
+                    clean_annee = s_annee
+
             defaults = {
-                'nom': row.get('nom') or '',
-                'prenom': row.get('prenom') or '',
+                'nom': nom_val,
+                'prenom': prenom_val,
                 'date_naissance': row.get('date_naissance') if pd.notna(row.get('date_naissance')) else None,
-                'mail': row.get('mail'),
+                'mail': mail_val,
             }
 
-            # On ne touche à annee_souscription QUE si elle est fournie et non vide
-            # (règle métier : ne pas écraser une valeur existante avec du vide)
-            if row.get('annee_souscription'):
-                defaults['annee_souscription'] = row['annee_souscription']
+            # Si l'année de souscription est explicite dans la ligne, on l'utilise.
+            # Sinon, on applique l'année académique déduite du nom du fichier.
+            if clean_annee:
+                defaults['annee_souscription'] = clean_annee
+            elif academic_year:
+                defaults['annee_souscription'] = academic_year
 
             # Recherche par matricule OU par nom + prénom normalisés
             existing = DimEtudiant.objects.filter(matricule=matricule).first()
@@ -110,7 +158,14 @@ def import_students_file(file_obj) -> dict:
                         break
 
             if existing:
+                is_existing_annee_valid = (
+                    existing.annee_souscription
+                    and str(existing.annee_souscription).strip().lower() not in ('nan', 'none', '', 'null')
+                )
                 for k, v in defaults.items():
+                    # Ne pas écraser une année de souscription valide déjà enregistrée avec le fallback
+                    if k == 'annee_souscription' and is_existing_annee_valid and not clean_annee:
+                        continue
                     if v is not None:
                         setattr(existing, k, v)
                 existing.save()

@@ -36,7 +36,7 @@ export default function StudentsSearchPage() {
   return (
     <MainLayout>
       {/* En-tête */}
-      <HeaderBar title="Étudiants" currentAnnee="2024–2025" />
+      <HeaderBar title="Étudiants" />
 
       {/* Barre de filtres (avec année académique) */}
       <FiltersBar

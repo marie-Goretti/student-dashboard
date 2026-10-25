@@ -39,12 +39,25 @@ export default function ImportPage() {
       console.warn('Analyse backend indisponible, génération de l’aperçu local:', err);
       // Fallback local instantané
       const isGrades = selectedFile.name.toLowerCase().includes('note') || selectedFile.name.toLowerCase().includes('suivi');
+      // Détection de l'année dans le nom du fichier
+      const mFull = selectedFile.name.match(/(20\d{2})[\s_\-/.](20\d{2})/);
+      const mShort = selectedFile.name.match(/(20\d{2})[\s_\-/.](\d{2})/);
+      const mSingle = selectedFile.name.match(/(20\d{2})/);
+      let detectedYear = null;
+      if (mFull) detectedYear = `${mFull[1]}-${mFull[2]}`;
+      else if (mShort) detectedYear = `${mShort[1]}-20${mShort[2]}`;
+      else if (mSingle) detectedYear = `${mSingle[1]}-${parseInt(mSingle[1], 10) + 1}`;
+
+      const yearItem = detectedYear ? `Année académique reconnue : ${detectedYear} (ajoutée aux filtres)` : null;
+
       setAnalysis({
         filename: selectedFile.name,
         file_type: isGrades ? 'grades' : 'students',
+        annee_academique: detectedYear,
         checklist: isGrades
           ? [
               '7 279 lignes détectées',
+              ...(yearItem ? [yearItem] : []),
               '166 modules détectés',
               '12 niveaux détectés',
               'Notes de devoir détectées',
@@ -55,6 +68,7 @@ export default function ImportPage() {
             ]
           : [
               'Lignes étudiantes détectées',
+              ...(yearItem ? [yearItem] : []),
               'Matricules uniques validés',
               'Informations personnelles reconnues',
               'Votre fichier Master Étudiants est prêt à être analysé.',

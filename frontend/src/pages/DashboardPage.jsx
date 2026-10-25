@@ -31,6 +31,8 @@ export default function DashboardPage() {
   const [distribution, setDistribution] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [anneesList, setAnneesList] = useState([]);
+
   // Charger la dernière année (la plus élevée) par défaut
   useEffect(() => {
     getAnnees()
@@ -38,6 +40,7 @@ export default function DashboardPage() {
         const list = (data.results ?? data)
           .filter((a) => a.annee_academique && a.annee_academique !== 'nan' && a.annee_academique !== 'None')
           .sort((a, b) => String(b.annee_academique).localeCompare(String(a.annee_academique)));
+        setAnneesList(list);
         if (list.length > 0) {
           setFilters({ id_annee: list[0].id_annee });
         }
@@ -86,10 +89,15 @@ export default function DashboardPage() {
     loadData();
   }, [loadData]);
 
+  const activeYearLabel =
+    anneesList.find((a) => String(a.id_annee) === String(filters.id_annee))?.annee_academique ||
+    anneesList[0]?.annee_academique ||
+    '';
+
   return (
     <MainLayout>
-      {/* 1. En-tête : Titre, Année, Recherche EduPulse, Cloche 3, AD Administrateur */}
-      <HeaderBar currentAnnee="2024-2025" />
+      {/* 1. En-tête : Titre, Année dynamique */}
+      <HeaderBar currentAnnee={activeYearLabel} />
 
       {/* 2. Hero Banner avec image de campus contenant les 4 KPIs : Nombre d'étudiants, Moyenne générale, Taux de réussite, Taux d'échec */}
       <HeroBanner
@@ -121,7 +129,7 @@ export default function DashboardPage() {
           {/* Rangée 1 : 3 graphiques (Moyenne par niveau, Évolution linéaire de la réussite, Points clés détectés) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
             <MoyenneParNiveauCard data={parNiveau} />
-            <EvolutionReussiteCard data={evolution} currentPeriod="2024-2025" />
+            <EvolutionReussiteCard data={evolution} currentPeriod={activeYearLabel} />
             <PointsClesCard points={pointsCles} />
           </div>
 

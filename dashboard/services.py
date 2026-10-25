@@ -167,13 +167,6 @@ def get_evolution_par_annee(filters: dict) -> list:
                 'total': tot,
             })
 
-    # Si aucune donnée ou une seule année, fallback cohérent sur 20
-    if not result:
-        result = [
-            {'annee': '2023-2024', 'moyenne': 11.97, 'taux_reussite': 71.5},
-            {'annee': '2024-2025', 'moyenne': 11.24, 'taux_reussite': 69.1},
-        ]
-
     return result
 
 
@@ -490,13 +483,22 @@ def get_student_modules_detail(id_etu, filters: dict = None) -> list:
 
 def get_student_annees(id_etu) -> list:
     """Liste des années académiques distinctes pour cet étudiant."""
-    return list(
+    annees = list(
         FactEvaluation.objects.filter(id_etu=id_etu)
         .exclude(id_annee__annee_academique__in=['nan', 'None', '', None])
         .values('id_annee', 'id_annee__annee_academique')
         .distinct()
         .order_by('-id_annee__annee_academique')
     )
+    if not annees:
+        from students.models import DimEtudiant
+        from academics.models import DimAnneeAcademique
+        etu = DimEtudiant.objects.filter(pk=id_etu).first()
+        if etu and etu.annee_souscription:
+            a_obj = DimAnneeAcademique.objects.filter(annee_academique=etu.annee_souscription).first()
+            if a_obj:
+                return [{'id_annee': a_obj.id_annee, 'id_annee__annee_academique': a_obj.annee_academique}]
+    return annees
 
 
 def get_student_semestres(id_etu) -> list:
@@ -673,6 +675,52 @@ def get_analyse_etudiants(filters: dict, search: str = None) -> list:
             'rattrapage': 'Oui' if has_rattrapage else 'Non',
             'statut': statut,
         })
+
+    # Inclusion des étudiants enregistrés dans dim_etudiant (ex: après import Master Étudiants)
+    # sans évaluations dans fact_evaluation pour l'année filtrée (ou sans filtre spécifique de niveau/module)
+    has_specific_academic_filter = bool(
+        filters.get('id_mod') or filters.get('id_niv') or filters.get('filiere') or filters.get('semestre')
+    )
+    if not has_specific_academic_filter:
+        from students.models import DimEtudiant
+        from academics.models import DimAnneeAcademique
+
+        etudiants_qs = DimEtudiant.objects.exclude(id_etu__in=seen_students)
+        if filters.get('id_annee'):
+            annee_obj = DimAnneeAcademique.objects.filter(id_annee=filters['id_annee']).first()
+            if annee_obj:
+                etudiants_qs = etudiants_qs.filter(annee_souscription=annee_obj.annee_academique)
+
+        if search:
+            s = search.strip()
+            etudiants_qs = etudiants_qs.filter(
+                Q(nom__icontains=s) |
+                Q(prenom__icontains=s) |
+                Q(matricule__icontains=s)
+            )
+
+        for etu in etudiants_qs.order_by('nom', 'prenom'):
+            nom = (etu.nom or '').strip()
+            prenom = (etu.prenom or '').strip()
+            nom_complet = f"{nom.upper()} {prenom.title()}".strip()
+            ini1 = nom[0].upper() if nom else 'E'
+            ini2 = prenom[0].upper() if prenom else ''
+            initiales = f"{ini1}{ini2}"
+
+            result.append({
+                'id_etu': etu.id_etu,
+                'matricule': etu.matricule,
+                'nom': nom,
+                'prenom': prenom,
+                'nom_complet': nom_complet,
+                'initiales': initiales,
+                'niveau': '—',
+                'moyenne': None,
+                'modules_valides': 0,
+                'en_difficulte': 0,
+                'rattrapage': 'Non',
+                'statut': 'Inscrit',
+            })
 
     return result
 

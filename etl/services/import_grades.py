@@ -294,7 +294,7 @@ def _clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 @transaction.atomic
-def import_grades_file(file_obj, sheet_name: str = None) -> dict:
+def import_grades_file(file_obj, sheet_name: str = None, filename: str = None) -> dict:
     """
     Importe la feuille de suivi des notes (détectée automatiquement ou spécifiée),
     avec matching des étudiants par NOM+PRENOM (le matricule de ce
@@ -412,6 +412,10 @@ def import_grades_file(file_obj, sheet_name: str = None) -> dict:
             module, _ = _get_or_create_module(module_nom, semestre)
 
             annee_academique = str(row.get("annee_en_cours") or "").strip()
+            if not annee_academique:
+                from .academic_year import extract_academic_year
+                effective_fn = filename or getattr(file_obj, 'name', '')
+                annee_academique = extract_academic_year(filename=effective_fn, text=sheet_name) or ""
             if not annee_academique:
                 raise GradeImportError("ANNEE EN COURS manquante sur cette ligne.")
             annee, _ = DimAnneeAcademique.objects.get_or_create(
