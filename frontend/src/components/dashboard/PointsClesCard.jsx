@@ -29,8 +29,7 @@ export default function PointsClesCard({ points }) {
   const items = points && points.length ? points : defaultItems;
 
   const handleVoirPlus = () => {
-    // Bouton prévu pour mener vers la page dédiée qu'on créera plus tard
-    navigate('/performance');
+    navigate('/recommandations');
   };
 
   return (
@@ -61,6 +60,7 @@ export default function PointsClesCard({ points }) {
           return (
             <div
               key={item.id || index}
+              onClick={() => navigate('/recommandations')}
               className="flex items-center justify-between gap-3 p-3 rounded-xl border border-cream-200/80 bg-cream-100/40 hover:bg-cream-100 transition cursor-pointer group"
             >
               {/* Badge numéro rond */}

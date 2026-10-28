@@ -26,5 +26,5 @@ urlpatterns = [
     path('distribution-notes/', DistributionNotesView.as_view(), name='distribution-notes'),
     path('comparaison-filieres/', ComparaisonFilieresView.as_view(), name='comparaison-filieres'),
     path('top-modules/', TopModulesView.as_view(), name='top-modules'),
-    path('student/<int:id_etu>/', StudentDashboardView.as_view(), name='student-dashboard'),
+    path('student/<str:id_or_matricule>/', StudentDashboardView.as_view(), name='student-dashboard'),
 ]

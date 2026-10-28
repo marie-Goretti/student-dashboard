@@ -75,14 +75,20 @@ class TopModulesView(APIView):
 
 class StudentDashboardView(APIView):
     """
-    GET /api/dashboard/student/{id_etu}/?id_annee=&semestre=
+    GET /api/dashboard/student/{id_or_matricule}/?id_annee=&semestre=
 
     Fiche complète d'un étudiant : ses infos, ses KPIs personnels, son
     évolution par année académique, et le détail de toutes ses évaluations
     (filtrable par année académique et par semestre).
     """
-    def get(self, request, id_etu):
-        etudiant = get_object_or_404(DimEtudiant, pk=id_etu)
+    def get(self, request, id_or_matricule):
+        if str(id_or_matricule).isdigit():
+            etudiant = DimEtudiant.objects.filter(pk=int(id_or_matricule)).first()
+        else:
+            etudiant = DimEtudiant.objects.filter(matricule__iexact=str(id_or_matricule).strip()).first()
+        if not etudiant:
+            return Response({'error': f"Étudiant '{id_or_matricule}' introuvable."}, status=404)
+        id_etu = etudiant.id_etu
         filters = _extract_filters(request)
         return Response({
             'etudiant': DimEtudiantSerializer(etudiant).data,

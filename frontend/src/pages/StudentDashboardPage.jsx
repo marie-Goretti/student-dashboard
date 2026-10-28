@@ -97,15 +97,15 @@ export default function StudentDashboardPage() {
 
           {/* --- KPI Cards --- */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <KpiCard label="Modules évalués" value={data.kpi.total_modules_evalues} icon={BookOpen} color="primary" />
-            <KpiCard label="Moyenne générale" value={data.kpi.moyenne_generale} icon={TrendingUp} color="amber" suffix="/20" />
-            <KpiCard label="Taux de réussite" value={data.kpi.taux_reussite} icon={Award} color="green" suffix="%" />
-            <KpiCard label="Rattrapages" value={data.kpi.nombre_rattrapages} icon={RotateCcw} color="red" />
+            <KpiCard label="Modules évalués" value={data.kpi?.total_modules_evalues ?? 0} icon={BookOpen} color="primary" />
+            <KpiCard label="Moyenne générale" value={data.kpi?.moyenne_generale ?? '—'} icon={TrendingUp} color="amber" suffix={data.kpi?.moyenne_generale !== null && data.kpi?.moyenne_generale !== undefined ? '/20' : ''} />
+            <KpiCard label="Taux de réussite" value={data.kpi?.taux_reussite ?? 0} icon={Award} color="green" suffix="%" />
+            <KpiCard label="Rattrapages" value={data.kpi?.nombre_rattrapages ?? 0} icon={RotateCcw} color="red" />
           </div>
 
           {/* --- Évolution --- */}
           <div className="mb-6">
-            <LineChartCard title="Évolution de la moyenne par année académique" data={data.evolution} />
+            <LineChartCard title="Évolution de la moyenne par année académique" data={data.evolution || []} />
           </div>
 
           {/* --- Relevé de notes détaillé avec filtres --- */}
@@ -114,7 +114,7 @@ export default function StudentDashboardPage() {
               <div>
                 <h3 className="font-semibold text-gray-800 text-base">Relevé de notes détaillé</h3>
                 <p className="text-xs text-gray-500">
-                  {data.modules.length} évaluation{data.modules.length > 1 ? 's' : ''} affichée{data.modules.length > 1 ? 's' : ''}
+                  {data.modules?.length ?? 0} évaluation{data.modules?.length > 1 ? 's' : ''} affichée{data.modules?.length > 1 ? 's' : ''}
                 </p>
               </div>
 
@@ -173,7 +173,7 @@ export default function StudentDashboardPage() {
               </p>
             </div>
 
-            {data.modules.length === 0 ? (
+            {!data.modules || data.modules.length === 0 ? (
               <p className="text-gray-400 text-sm text-center py-10">
                 Aucune évaluation enregistrée pour les filtres sélectionnés.
               </p>
@@ -196,7 +196,7 @@ export default function StudentDashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.modules.map((m, i) => {
+                    {(data.modules || []).map((m, i) => {
                       const semLabel = m.semestre ? (String(m.semestre).startsWith('S') ? m.semestre : `S${m.semestre}`) : '—';
                       const hasRat = m.note_rattrapage !== null && m.note_rattrapage !== undefined;
                       const isAdmisNormal = m.resultat === 'ADMIS' || (m.moyenne !== null && m.moyenne >= 10);

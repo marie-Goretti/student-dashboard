@@ -1097,9 +1097,12 @@ def get_recommandations(filters: dict) -> dict:
             nom_etu = f"{ev.id_etu.nom.upper()} {ev.id_etu.prenom.title()}".strip() if ev.id_etu else 'Étudiant'
             rule_data[r]['sample'].append({
                 'id_eval': ev.id_eval,
+                'id_etu': ev.id_etu_id,
                 'matricule': ev.id_etu.matricule if ev.id_etu else '',
                 'etudiant': nom_etu,
+                'id_mod': ev.id_mod_id,
                 'module': mod_name,
+                'id_niv': ev.id_niv_id,
                 'niveau': ev.id_niv.code_niv if ev.id_niv else '',
                 'note_devoir': round(devoir, 1),
                 'note_examen': round(exam, 1),
@@ -1186,6 +1189,8 @@ def get_niveau_detail(id_or_code_niv, filters: dict = None) -> dict:
         niveau = DimNiveau.objects.filter(pk=int(id_or_code_niv)).first()
     else:
         niveau = DimNiveau.objects.filter(code_niv__iexact=str(id_or_code_niv).strip()).first()
+        if not niveau:
+            niveau = DimNiveau.objects.filter(libelle_niv__iexact=str(id_or_code_niv).strip()).first()
 
     if not niveau:
         return None
@@ -1332,13 +1337,21 @@ def get_niveau_detail(id_or_code_niv, filters: dict = None) -> dict:
         })
 
     # Liste des années académiques disponibles pour ce niveau
-    annees = list(
+    raw_annees = list(
         FactEvaluation.objects.filter(id_niv=niveau)
         .exclude(id_annee__annee_academique__in=['nan', 'None', '', None])
         .values('id_annee', 'id_annee__annee_academique')
         .distinct()
         .order_by('-id_annee__annee_academique')
     )
+    annees = [
+        {
+            'id_annee': r['id_annee'],
+            'annee_academique': r['id_annee__annee_academique'],
+            'id_annee__annee_academique': r['id_annee__annee_academique'],
+        }
+        for r in raw_annees
+    ]
 
     return {
         'niveau': {
@@ -1381,6 +1394,8 @@ def get_module_detail(id_or_code_mod, filters: dict = None) -> dict:
         module = DimModule.objects.filter(pk=int(id_or_code_mod)).first()
     else:
         module = DimModule.objects.filter(code_mod__iexact=str(id_or_code_mod).strip()).first()
+        if not module:
+            module = DimModule.objects.filter(nom_mod__iexact=str(id_or_code_mod).strip()).first()
 
     if not module:
         return None
@@ -1522,13 +1537,21 @@ def get_module_detail(id_or_code_mod, filters: dict = None) -> dict:
         })
 
     # Années et niveaux distincts pour les filtres
-    annees = list(
+    raw_annees = list(
         FactEvaluation.objects.filter(id_mod=module)
         .exclude(id_annee__annee_academique__in=['nan', 'None', '', None])
         .values('id_annee', 'id_annee__annee_academique')
         .distinct()
         .order_by('-id_annee__annee_academique')
     )
+    annees = [
+        {
+            'id_annee': r['id_annee'],
+            'annee_academique': r['id_annee__annee_academique'],
+            'id_annee__annee_academique': r['id_annee__annee_academique'],
+        }
+        for r in raw_annees
+    ]
 
     return {
         'module': {

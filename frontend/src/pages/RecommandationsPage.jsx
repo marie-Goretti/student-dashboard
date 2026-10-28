@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
 import FiltersBar from '../components/dashboard/FiltersBar';
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react';
 
 export default function RecommandationsPage() {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState({});
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -533,7 +535,10 @@ export default function RecommandationsPage() {
                                 const isAdmis = st.statut === 'Admis';
                                 return (
                                   <tr key={st.id_eval || sIdx} className="hover:bg-cream-100/30 transition">
-                                    <td className="py-2 px-3 font-semibold text-ink">
+                                    <td
+                                      className="py-2 px-3 font-semibold text-ink cursor-pointer hover:text-navy-700 transition"
+                                      onClick={() => (st.id_etu ? navigate(`/students/${st.id_etu}`) : null)}
+                                    >
                                       {st.etudiant}
                                       {st.matricule && (
                                         <span className="text-[10px] text-ink/40 block font-normal font-mono">
@@ -541,8 +546,18 @@ export default function RecommandationsPage() {
                                         </span>
                                       )}
                                     </td>
-                                    <td className="py-2 px-3 text-ink/80">{st.module}</td>
-                                    <td className="py-2 px-2 text-center text-ink/60 font-mono">{st.niveau}</td>
+                                    <td
+                                      className="py-2 px-3 text-ink/80 cursor-pointer hover:text-navy-700 transition"
+                                      onClick={() => (st.id_mod ? navigate(`/modules/${st.id_mod}`) : null)}
+                                    >
+                                      {st.module}
+                                    </td>
+                                    <td
+                                      className="py-2 px-2 text-center text-ink/60 font-mono cursor-pointer hover:text-navy-700 transition"
+                                      onClick={() => (st.id_niv || st.niveau ? navigate(`/niveaux/${st.id_niv || st.niveau}`) : null)}
+                                    >
+                                      {st.niveau}
+                                    </td>
                                     <td className="py-2 px-2 text-center font-medium text-ink">
                                       {st.note_devoir?.toFixed(1)}/20
                                     </td>

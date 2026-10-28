@@ -88,14 +88,16 @@ export default function ModuleDetailPage() {
   }
 
   const { module, kpi, niveaux, distribution, evolution, annees } = data;
-  const isMoyLow = kpi.moyenne_generale !== null && kpi.moyenne_generale < 10.0;
+  const isMoyLow = kpi?.moyenne_generale !== null && kpi?.moyenne_generale !== undefined && kpi?.moyenne_generale < 10.0;
 
   return (
     <MainLayout>
       <HeaderBar
-        title={`Fiche Module : ${module.nom_mod}`}
+        title={`Fiche Module : ${module?.nom_mod || ''}`}
         currentAnnee={
-          annees?.find((a) => String(a.id_annee) === String(filters.id_annee))?.id_annee__annee_academique ||
+          annees?.find((a) => String(a.id_annee) === String(selectedAnnee))?.annee_academique ||
+          annees?.find((a) => String(a.id_annee) === String(selectedAnnee))?.id_annee__annee_academique ||
+          annees?.[0]?.annee_academique ||
           annees?.[0]?.id_annee__annee_academique ||
           ''
         }
@@ -123,7 +125,7 @@ export default function ModuleDetailPage() {
               <option value="">Toutes les années</option>
               {annees?.map((a) => (
                 <option key={a.id_annee} value={a.id_annee}>
-                  {a.annee_academique}
+                  {a.annee_academique || a.id_annee__annee_academique}
                 </option>
               ))}
             </select>
@@ -178,7 +180,7 @@ export default function ModuleDetailPage() {
             </div>
             <div>
               <p className="text-[11px] text-cream-200/80 uppercase font-bold tracking-wider">Total Évalués</p>
-              <p className="text-2xl font-black text-white">{kpi.total_etudiants} <span className="text-xs font-normal text-cream-100/70">étudiants</span></p>
+              <p className="text-2xl font-black text-white">{kpi?.total_etudiants ?? 0} <span className="text-xs font-normal text-cream-100/70">étudiants</span></p>
             </div>
           </div>
         </div>
@@ -192,8 +194,8 @@ export default function ModuleDetailPage() {
             <span className="text-[11px] font-bold uppercase text-ink/50">Évaluations</span>
             <FileText size={15} className="text-navy-600" />
           </div>
-          <p className="text-xl font-bold text-ink">{kpi.total_evaluations}</p>
-          <p className="text-[11px] text-ink/40 mt-1">{kpi.total_etudiants} étudiants distincts</p>
+          <p className="text-xl font-bold text-ink">{kpi?.total_evaluations ?? 0}</p>
+          <p className="text-[11px] text-ink/40 mt-1">{kpi?.total_etudiants ?? 0} étudiants distincts</p>
         </div>
 
         {/* KPI 2 : Moyenne générale */}
@@ -203,7 +205,7 @@ export default function ModuleDetailPage() {
             <TrendingUp size={15} className={isMoyLow ? 'text-maroon-500' : 'text-emerald-600'} />
           </div>
           <p className={`text-xl font-bold ${isMoyLow ? 'text-maroon-600' : 'text-ink'}`}>
-            {kpi.moyenne_generale !== null ? `${kpi.moyenne_generale}/20` : '—'}
+            {kpi?.moyenne_generale !== null && kpi?.moyenne_generale !== undefined ? `${kpi.moyenne_generale}/20` : '—'}
           </p>
           <p className="text-[11px] text-ink/40 mt-1">sur 20</p>
         </div>
@@ -214,9 +216,9 @@ export default function ModuleDetailPage() {
             <span className="text-[11px] font-bold uppercase text-ink/50">Réussite</span>
             <Award size={15} className="text-emerald-600" />
           </div>
-          <p className="text-xl font-bold text-emerald-600">{kpi.taux_reussite}%</p>
+          <p className="text-xl font-bold text-emerald-600">{kpi?.taux_reussite ?? 0}%</p>
           <div className="w-full bg-cream-100 h-1.5 rounded-full mt-2 overflow-hidden">
-            <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, kpi.taux_reussite)}%` }} />
+            <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, kpi?.taux_reussite ?? 0)}%` }} />
           </div>
         </div>
 
@@ -226,8 +228,8 @@ export default function ModuleDetailPage() {
             <span className="text-[11px] font-bold uppercase text-ink/50">Échec</span>
             <XCircle size={15} className="text-maroon-500" />
           </div>
-          <p className="text-xl font-bold text-maroon-600">{kpi.taux_echec}%</p>
-          <p className="text-[11px] text-ink/40 mt-1">{kpi.rattrapages} en rattrapage</p>
+          <p className="text-xl font-bold text-maroon-600">{kpi?.taux_echec ?? 0}%</p>
+          <p className="text-[11px] text-ink/40 mt-1">{kpi?.rattrapages ?? 0} en rattrapage</p>
         </div>
 
         {/* KPI 5 : Devoirs CC */}
@@ -237,7 +239,7 @@ export default function ModuleDetailPage() {
             <span className="w-2.5 h-2.5 rounded-xs bg-[#2C4A6E]" />
           </div>
           <p className="text-xl font-bold text-[#2C4A6E]">
-            {kpi.moyenne_devoir !== null ? `${kpi.moyenne_devoir}/20` : '—'}
+            {kpi?.moyenne_devoir !== null && kpi?.moyenne_devoir !== undefined ? `${kpi.moyenne_devoir}/20` : '—'}
           </p>
           <p className="text-[11px] text-ink/40 mt-1">Moyenne CC ramenée</p>
         </div>
@@ -249,7 +251,7 @@ export default function ModuleDetailPage() {
             <span className="w-2.5 h-2.5 rounded-xs bg-[#7A1620]" />
           </div>
           <p className="text-xl font-bold text-[#7A1620]">
-            {kpi.moyenne_examen !== null ? `${kpi.moyenne_examen}/20` : '—'}
+            {kpi?.moyenne_examen !== null && kpi?.moyenne_examen !== undefined ? `${kpi.moyenne_examen}/20` : '—'}
           </p>
           <p className="text-[11px] text-ink/40 mt-1">Note d'épreuve</p>
         </div>
@@ -341,7 +343,7 @@ export default function ModuleDetailPage() {
               }`}
             >
               <FileText size={16} />
-              Évaluations des Étudiants ({data.evaluations.length})
+              Évaluations des Étudiants ({data.evaluations?.length ?? 0})
             </button>
             <button
               onClick={() => setActiveTab('niveaux')}
@@ -352,7 +354,7 @@ export default function ModuleDetailPage() {
               }`}
             >
               <Layers size={16} />
-              Promotions concernées ({niveaux.length})
+              Promotions concernées ({niveaux?.length ?? 0})
             </button>
           </div>
 
@@ -492,7 +494,7 @@ export default function ModuleDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cream-100 text-xs">
-                {niveaux.map((n) => {
+                {(niveaux || []).map((n) => {
                   const isLow = n.moyenne !== null && n.moyenne < 10.0;
                   return (
                     <tr

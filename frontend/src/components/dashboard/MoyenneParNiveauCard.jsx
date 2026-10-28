@@ -1,8 +1,10 @@
+import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 
 export default function MoyenneParNiveauCard({ data }) {
+  const navigate = useNavigate();
   // Filtre sur les 10 niveaux officiels
   const NIVEAU_ORDER = ['B1M', 'B1SI', 'B2M', 'B2SI', 'B3M', 'B3SI', 'M1M', 'M1SI', 'M2M', 'M2SI'];
   const chartData = (data || [])
@@ -81,6 +83,8 @@ export default function MoyenneParNiveauCard({ data }) {
                 {chartData.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
+                    onClick={() => entry.niveau && navigate(`/niveaux/${entry.niveau}`)}
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
                     fill={entry.moyenne !== null && Number(entry.moyenne) < 10 ? '#7A1620' : '#2C4A6E'}
                   />
                 ))}

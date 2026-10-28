@@ -139,7 +139,7 @@ export default function DashboardPage() {
             <DistributionNotesCard
               data={distribution}
               onExploreClick={() => {
-                alert('Exploration des cohortes par tranche de performance');
+                navigate('/students');
               }}
             />
           </div>
