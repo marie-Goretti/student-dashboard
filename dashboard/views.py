@@ -82,10 +82,12 @@ class StudentDashboardView(APIView):
     (filtrable par année académique et par semestre).
     """
     def get(self, request, id_or_matricule):
-        if str(id_or_matricule).isdigit():
-            etudiant = DimEtudiant.objects.filter(pk=int(id_or_matricule)).first()
-        else:
-            etudiant = DimEtudiant.objects.filter(matricule__iexact=str(id_or_matricule).strip()).first()
+        cleaned = str(id_or_matricule).strip()
+        etudiant = None
+        if cleaned.isdigit():
+            etudiant = DimEtudiant.objects.filter(pk=int(cleaned)).first()
+        if not etudiant:
+            etudiant = DimEtudiant.objects.filter(matricule__iexact=cleaned).first()
         if not etudiant:
             return Response({'error': f"Étudiant '{id_or_matricule}' introuvable."}, status=404)
         id_etu = etudiant.id_etu
@@ -128,7 +130,7 @@ class AnalyseRattrapagesView(APIView):
 class RecommandationsView(APIView):
     """GET /api/dashboard/recommandations/"""
     def get(self, request):
-        return Response(services.get_recommandations(_extract_filters(request)))
+        return Response(services.get_recommandations(_extract_filters(request), user=request.user))
 
 
 class NiveauDetailView(APIView):
@@ -147,4 +149,4 @@ class ModuleDetailView(APIView):
         if not data:
             return Response({'error': f"Module '{id_or_code}' introuvable."}, status=404)
         return Response(data)
-
+

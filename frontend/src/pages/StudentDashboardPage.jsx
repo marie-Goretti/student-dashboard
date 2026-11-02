@@ -45,7 +45,7 @@ export default function StudentDashboardPage() {
     setError(null);
     getStudentDashboard(id, studentFilters)
       .then(setData)
-      .catch(() => setError("Étudiant introuvable."))
+      .catch((err) => setError(err?.response?.data?.error || "Étudiant introuvable."))
       .finally(() => setLoading(false));
   }, [id, studentFilters]);
 
