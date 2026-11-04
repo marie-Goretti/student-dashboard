@@ -89,15 +89,10 @@ export default function DashboardPage() {
     loadData();
   }, [loadData]);
 
-  const activeYearLabel =
-    anneesList.find((a) => String(a.id_annee) === String(filters.id_annee))?.annee_academique ||
-    anneesList[0]?.annee_academique ||
-    '';
-
   return (
     <MainLayout>
-      {/* 1. En-tête : Titre, Année dynamique */}
-      <HeaderBar currentAnnee={activeYearLabel} />
+      {/* 1. En-tête : Titre */}
+      <HeaderBar />
 
       {/* 2. Hero Banner avec image de campus contenant les 4 KPIs : Nombre d'étudiants, Moyenne générale, Taux de réussite, Taux d'échec */}
       <HeroBanner
@@ -129,7 +124,7 @@ export default function DashboardPage() {
           {/* Rangée 1 : 3 graphiques (Moyenne par niveau, Évolution linéaire de la réussite, Points clés détectés) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
             <MoyenneParNiveauCard data={parNiveau} />
-            <EvolutionReussiteCard data={evolution} currentPeriod={activeYearLabel} />
+            <EvolutionReussiteCard data={evolution} />
             <PointsClesCard points={pointsCles} />
           </div>
 

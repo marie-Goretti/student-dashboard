@@ -2,7 +2,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 
-export default function EvolutionReussiteCard({ data = [], currentPeriod = '' }) {
+export default function EvolutionReussiteCard({ data = [] }) {
   const chartData = data && data.length ? data : [];
 
   const CustomTooltip = ({ active, payload, label }) => {
@@ -38,11 +38,6 @@ export default function EvolutionReussiteCard({ data = [], currentPeriod = '' })
             Comparaison des moyennes générales sur 20 par année
           </p>
         </div>
-        {currentPeriod && (
-          <span className="text-[11px] font-semibold text-navy-600 bg-navy-50 border border-navy-100 px-2.5 py-1 rounded-full">
-            {currentPeriod}
-          </span>
-        )}
       </div>
 
       {/* Graphique linéaire (Line / Area chart) */}
