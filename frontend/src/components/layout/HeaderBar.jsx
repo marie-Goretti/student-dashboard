@@ -7,11 +7,15 @@ export default function HeaderBar({
   title = 'Tableau de bord académique',
   currentAnnee,
   subtitle,
+  showSubtitle = true,
 }) {
   const { user } = useAuth() || {};
   const [dynamicAnnee, setDynamicAnnee] = useState('');
 
+  const displaySubtitle = showSubtitle && subtitle !== null && subtitle !== false;
+
   useEffect(() => {
+    if (!displaySubtitle) return;
     if (!currentAnnee && !subtitle) {
       getAnnees()
         .then((data) => {
@@ -24,7 +28,7 @@ export default function HeaderBar({
         })
         .catch(() => {});
     }
-  }, [currentAnnee, subtitle]);
+  }, [currentAnnee, subtitle, displaySubtitle]);
 
   const activeAnnee = currentAnnee || dynamicAnnee;
   const activeSubtitle = subtitle || (activeAnnee ? `Année académique ${activeAnnee}` : 'Performances académiques');
@@ -36,9 +40,11 @@ export default function HeaderBar({
         <h1 className="text-2xl md:text-[26px] font-bold text-ink tracking-tight font-sans">
           {title}
         </h1>
-        <p className="text-xs md:text-sm text-ink/50 mt-0.5">
-          {activeSubtitle}
-        </p>
+        {displaySubtitle && activeSubtitle && (
+          <p className="text-xs md:text-sm text-ink/50 mt-0.5">
+            {activeSubtitle}
+          </p>
+        )}
       </div>
 
       {/* Barre d'outils droite : Recherche, Notification, Profil */}

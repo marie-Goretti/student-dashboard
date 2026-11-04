@@ -6,7 +6,7 @@ import { getNiveauDetail } from '../api/dashboardService';
 import {
   ArrowLeft, Users, BookOpen, TrendingUp, Award, AlertTriangle,
   RotateCcw, Search, ChevronRight, Layers, CheckCircle2, XCircle,
-  GraduationCap, Calendar, BarChart3, Loader2
+  Calendar, BarChart3, Loader2
 } from 'lucide-react';
 import {
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -120,13 +120,7 @@ export default function NiveauDetailPage() {
     <MainLayout>
       <HeaderBar
         title={`Fiche Niveau : ${niveau?.code_niv || ''}`}
-        currentAnnee={
-          annees?.find((a) => String(a.id_annee) === String(selectedAnnee))?.annee_academique ||
-          annees?.find((a) => String(a.id_annee) === String(selectedAnnee))?.id_annee__annee_academique ||
-          annees?.[0]?.annee_academique ||
-          annees?.[0]?.id_annee__annee_academique ||
-          ''
-        }
+        showSubtitle={false}
       />
 
       {/* Navigation retour & Breadcrumbs */}
@@ -172,46 +166,16 @@ export default function NiveauDetailPage() {
         </div>
       </div>
 
-      {/* Hero Banner du Niveau */}
-      <div className="bg-gradient-to-br from-navy-900 via-navy-800 to-navy-950 text-white rounded-3xl p-6 md:p-8 shadow-sm mb-6 relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-radial from-white/5 to-transparent pointer-events-none" />
-        <div className="relative z-10 flex items-start justify-between flex-wrap gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-cream-100 text-xs font-medium mb-3 backdrop-blur-xs">
-              <GraduationCap size={14} className="text-cream-200" />
-              Promotion Universitaire
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white mb-2">
-              {niveau.code_niv} — {niveau.libelle_niv}
-            </h1>
-            <p className="text-xs md:text-sm text-cream-100/70 max-w-xl">
-              Tableau de bord de suivi académique spécifique à cette cohorte. Synthèse des résultats, performances par module et étudiants inscrits.
-            </p>
-          </div>
-
-          {/* Badge résumé effectif */}
-          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-            <div className="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center text-white">
-              <Users size={22} />
-            </div>
-            <div>
-              <p className="text-[11px] text-cream-200/80 uppercase font-bold tracking-wider">Effectif évalué</p>
-              <p className="text-2xl font-black text-white">{kpi?.effectif ?? 0} <span className="text-xs font-normal text-cream-100/70">étudiants</span></p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Grille des KPIs clés */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 mb-6">
-        {/* KPI 1 : Effectif */}
+        {/* KPI 1 : Effectif Étudiants */}
         <div className="bg-white rounded-2xl border border-cream-200 p-4 shadow-xs">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold uppercase text-ink/50">Effectif</span>
+            <span className="text-[11px] font-bold uppercase text-ink/50">Effectif Étudiants</span>
             <Users size={15} className="text-navy-600" />
           </div>
           <p className="text-xl font-bold text-ink">{kpi?.effectif ?? 0}</p>
-          <p className="text-[11px] text-ink/40 mt-1">{kpi?.total_evaluations ?? 0} évaluations</p>
+          <p className="text-[11px] text-ink/40 mt-1">{kpi?.effectif > 1 ? 'étudiants inscrits' : 'étudiant inscrit'}</p>
         </div>
 
         {/* KPI 2 : Moyenne générale */}
