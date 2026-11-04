@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
+import Pagination from '../components/common/Pagination';
 import { getNiveauDetail } from '../api/dashboardService';
 import {
   ArrowLeft, Users, BookOpen, TrendingUp, Award, AlertTriangle,
@@ -23,6 +24,10 @@ export default function NiveauDetailPage() {
   const [selectedSemestre, setSelectedSemestre] = useState('');
   const [studentSearch, setStudentSearch] = useState('');
   const [activeTab, setActiveTab] = useState('modules'); // 'modules' | 'etudiants'
+  const [modulesPage, setModulesPage] = useState(1);
+  const [modulesPageSize, setModulesPageSize] = useState(10);
+  const [studentsPage, setStudentsPage] = useState(1);
+  const [studentsPageSize, setStudentsPageSize] = useState(10);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -56,6 +61,17 @@ export default function NiveauDetailPage() {
         e.matricule.toLowerCase().includes(q)
     );
   }, [data?.etudiants, studentSearch]);
+
+  const paginatedModules = useMemo(() => {
+    const list = data?.modules || [];
+    const start = (modulesPage - 1) * modulesPageSize;
+    return list.slice(start, start + modulesPageSize);
+  }, [data?.modules, modulesPage, modulesPageSize]);
+
+  const paginatedStudents = useMemo(() => {
+    const start = (studentsPage - 1) * studentsPageSize;
+    return filteredStudents.slice(start, start + studentsPageSize);
+  }, [filteredStudents, studentsPage, studentsPageSize]);
 
   const getRiskBadge = (risque) => {
     switch (risque) {
@@ -344,7 +360,7 @@ export default function NiveauDetailPage() {
                 type="text"
                 placeholder="Rechercher un étudiant..."
                 value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
+                onChange={(e) => { setStudentSearch(e.target.value); setStudentsPage(1); }}
                 className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-cream-200 text-xs text-ink placeholder:text-ink/40 focus:outline-navy-600"
               />
             </div>
@@ -368,7 +384,7 @@ export default function NiveauDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cream-100 text-xs">
-                {(modules || []).map((m) => {
+                {paginatedModules.map((m) => {
                   const isModMoyLow = m.moyenne !== null && m.moyenne < 10.0;
                   return (
                     <tr
@@ -415,6 +431,15 @@ export default function NiveauDetailPage() {
                 })}
               </tbody>
             </table>
+            <Pagination
+              currentPage={modulesPage}
+              totalItems={modules?.length || 0}
+              pageSize={modulesPageSize}
+              onPageChange={setModulesPage}
+              onPageSizeChange={setModulesPageSize}
+              pageSizeOptions={[10, 20, 50]}
+              itemLabel="modules"
+            />
           </div>
         )}
 
@@ -438,7 +463,7 @@ export default function NiveauDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cream-100 text-xs">
-                  {filteredStudents.map((e) => {
+                  {paginatedStudents.map((e) => {
                     const isLow = e.moyenne < 10.0;
                     return (
                       <tr
@@ -504,6 +529,15 @@ export default function NiveauDetailPage() {
                 </tbody>
               </table>
             )}
+            <Pagination
+              currentPage={studentsPage}
+              totalItems={filteredStudents.length}
+              pageSize={studentsPageSize}
+              onPageChange={setStudentsPage}
+              onPageSizeChange={setStudentsPageSize}
+              pageSizeOptions={[10, 20, 50]}
+              itemLabel="étudiants"
+            />
           </div>
         )}
       </div>

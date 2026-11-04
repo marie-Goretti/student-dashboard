@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
+import Pagination from '../components/common/Pagination';
 import FiltersBar from '../components/dashboard/FiltersBar';
 import { getAnalyseNiveaux } from '../api/dashboardService';
 import { Loader2, ChevronRight } from 'lucide-react';
@@ -11,12 +12,14 @@ export default function NiveauxPage() {
   const [filters, setFilters] = useState({});
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getAnalyseNiveaux(filters);
-      setData(res);
+      setData(res || []);
     } catch (err) {
       console.error('Erreur chargement analyse des niveaux:', err);
     } finally {
@@ -27,6 +30,18 @@ export default function NiveauxPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Réinitialiser la page quand les filtres changent
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  // Découpage paginé
+  const paginatedData = useMemo(() => {
+    const list = data || [];
+    const start = (currentPage - 1) * pageSize;
+    return list.slice(start, start + pageSize);
+  }, [data, currentPage, pageSize]);
 
   const getRiskBadge = (risque) => {
     switch (risque) {
@@ -101,7 +116,7 @@ export default function NiveauxPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cream-100 text-xs">
-                {data.map((row, idx) => {
+                {paginatedData.map((row, idx) => {
                   const isMoyLow = row.moyenne !== null && row.moyenne < 10.0;
                   const isTauxLow = row.taux_reussite !== null && row.taux_reussite < 70.0;
                   const targetId = row.id_niv || row.niveau;
@@ -155,6 +170,17 @@ export default function NiveauxPage() {
                 })}
               </tbody>
             </table>
+            <div className="px-6 pb-4">
+              <Pagination
+                currentPage={currentPage}
+                totalItems={data.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+                pageSizeOptions={[10, 20, 50]}
+                itemLabel="promotions"
+              />
+            </div>
           </div>
         )}
       </div>

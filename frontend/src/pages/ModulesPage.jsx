@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
 import FiltersBar from '../components/dashboard/FiltersBar';
+import Pagination from '../components/common/Pagination';
 import { getAnalyseModules } from '../api/dashboardService';
 import { Loader2, ChevronRight } from 'lucide-react';
 
@@ -11,6 +12,14 @@ export default function ModulesPage() {
   const [filters, setFilters] = useState({});
   const [data, setData] = useState({ top_modules: [], attention_modules: [] });
   const [loading, setLoading] = useState(true);
+
+  // Pagination pour les modules les plus performants
+  const [topPage, setTopPage] = useState(1);
+  const [topPageSize, setTopPageSize] = useState(10);
+
+  // Pagination pour les modules nécessitant une attention
+  const [attentionPage, setAttentionPage] = useState(1);
+  const [attentionPageSize, setAttentionPageSize] = useState(10);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -28,8 +37,25 @@ export default function ModulesPage() {
     loadData();
   }, [loadData]);
 
+  // Réinitialiser les pages quand les filtres changent
+  useEffect(() => {
+    setTopPage(1);
+    setAttentionPage(1);
+  }, [filters]);
+
   const topModules = data.top_modules || [];
   const attentionModules = data.attention_modules || [];
+
+  // Découpage paginé
+  const paginatedTopModules = useMemo(() => {
+    const start = (topPage - 1) * topPageSize;
+    return topModules.slice(start, start + topPageSize);
+  }, [topModules, topPage, topPageSize]);
+
+  const paginatedAttentionModules = useMemo(() => {
+    const start = (attentionPage - 1) * attentionPageSize;
+    return attentionModules.slice(start, start + attentionPageSize);
+  }, [attentionModules, attentionPage, attentionPageSize]);
 
   return (
     <MainLayout>
@@ -50,66 +76,88 @@ export default function ModulesPage() {
           {/* CARD 1 : Modules les plus performants                         */}
           {/* ============================================================ */}
           <div className="bg-white rounded-3xl border border-cream-200 shadow-xs overflow-hidden p-6 md:p-8">
-            <h2 className="text-sm md:text-base font-bold text-ink mb-6">
-              Modules les plus performants
-            </h2>
+            <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-sm md:text-base font-bold text-ink">
+                  Modules les plus performants
+                </h2>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  {topModules.length} module{topModules.length > 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
 
             {topModules.length === 0 ? (
               <p className="text-xs text-ink/50 py-4">Aucune donnée disponible pour cette sélection.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-cream-200/80 bg-cream-50/50 text-[11px] font-bold text-ink/50 uppercase tracking-wider">
-                      <th className="py-3 px-6">Module</th>
-                      <th className="py-3 px-6">Moyenne</th>
-                      <th className="py-3 px-6">Taux de Réussite</th>
-                      <th className="py-3 px-6">Étudiants</th>
-                      <th className="py-3 px-6 text-right">Détails</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-cream-100 text-xs">
-                    {topModules.map((row, idx) => {
-                      const targetId = row.id_mod || row.module;
-                      return (
-                        <tr
-                          key={idx}
-                          onClick={() => navigate(`/modules/${targetId}`)}
-                          className="hover:bg-cream-50/60 transition-colors cursor-pointer group"
-                        >
-                          <td className="py-4 px-6 font-semibold text-ink text-[13px] group-hover:text-navy-700 transition">
-                            {row.module}
-                          </td>
-                          <td className="py-4 px-6 font-semibold text-ink">
-                            {row.moyenne !== null ? Number(row.moyenne).toFixed(1) : '—'}
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-3">
-                              <div className="w-28 md:w-36 h-2 bg-cream-200 rounded-full overflow-hidden shrink-0">
-                                <div
-                                  className="h-full bg-navy-700 rounded-full transition-all duration-500"
-                                  style={{ width: `${Math.min(100, Math.max(0, row.taux_reussite))}%` }}
-                                />
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-cream-200/80 bg-cream-50/50 text-[11px] font-bold text-ink/50 uppercase tracking-wider">
+                        <th className="py-3 px-6">Module</th>
+                        <th className="py-3 px-6">Moyenne</th>
+                        <th className="py-3 px-6">Taux de Réussite</th>
+                        <th className="py-3 px-6">Étudiants</th>
+                        <th className="py-3 px-6 text-right">Détails</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-cream-100 text-xs">
+                      {paginatedTopModules.map((row, idx) => {
+                        const targetId = row.id_mod || row.module;
+                        return (
+                          <tr
+                            key={row.id_mod || idx}
+                            onClick={() => navigate(`/modules/${targetId}`)}
+                            className="hover:bg-cream-50/60 transition-colors cursor-pointer group"
+                          >
+                            <td className="py-4 px-6 font-semibold text-ink text-[13px] group-hover:text-navy-700 transition">
+                              {row.module}
+                            </td>
+                            <td className="py-4 px-6 font-semibold text-ink">
+                              {row.moyenne !== null ? Number(row.moyenne).toFixed(1) : '—'}
+                            </td>
+                            <td className="py-4 px-6">
+                              <div className="flex items-center gap-3">
+                                <div className="w-28 md:w-36 h-2 bg-cream-200 rounded-full overflow-hidden shrink-0">
+                                  <div
+                                    className="h-full bg-navy-700 rounded-full transition-all duration-500"
+                                    style={{ width: `${Math.min(100, Math.max(0, row.taux_reussite))}%` }}
+                                  />
+                                </div>
+                                <span className="font-semibold text-ink text-xs">
+                                  {row.taux_reussite}%
+                                </span>
                               </div>
-                              <span className="font-semibold text-ink text-xs">
-                                {row.taux_reussite}%
+                            </td>
+                            <td className="py-4 px-6 font-normal text-ink/80">
+                              {row.etudiants}
+                            </td>
+                            <td className="py-4 px-6 text-right">
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-navy-600 group-hover:text-navy-800 transition">
+                                Fiche module <ChevronRight size={13} />
                               </span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6 font-normal text-ink/80">
-                            {row.etudiants}
-                          </td>
-                          <td className="py-4 px-6 text-right">
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-navy-600 group-hover:text-navy-800 transition">
-                              Fiche module <ChevronRight size={13} />
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Composant de pagination */}
+                <Pagination
+                  currentPage={topPage}
+                  totalItems={topModules.length}
+                  pageSize={topPageSize}
+                  onPageChange={setTopPage}
+                  onPageSizeChange={(sz) => {
+                    setTopPageSize(sz);
+                    setTopPage(1);
+                  }}
+                  itemLabel="modules performants"
+                />
+              </>
             )}
           </div>
 
@@ -117,79 +165,101 @@ export default function ModulesPage() {
           {/* CARD 2 : Modules nécessitant une attention                    */}
           {/* ============================================================ */}
           <div className="bg-white rounded-3xl border border-cream-200 shadow-xs overflow-hidden p-6 md:p-8">
-            <h2 className="text-sm md:text-base font-bold text-ink mb-6">
-              Modules nécessitant une attention
-            </h2>
+            <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-sm md:text-base font-bold text-ink">
+                  Modules nécessitant une attention
+                </h2>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-maroon-600 border border-rose-200">
+                  {attentionModules.length} module{attentionModules.length > 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
 
             {attentionModules.length === 0 ? (
               <p className="text-xs text-ink/50 py-4">Aucune donnée disponible pour cette sélection.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-cream-200/80 bg-cream-50/50 text-[11px] font-bold text-ink/50 uppercase tracking-wider">
-                      <th className="py-3 px-6">Module</th>
-                      <th className="py-3 px-6">Moyenne</th>
-                      <th className="py-3 px-6">Taux de Réussite</th>
-                      <th className="py-3 px-6">Taux d'Échec</th>
-                      <th className="py-3 px-6">Risque</th>
-                      <th className="py-3 px-6 text-right">Détails</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-cream-100 text-xs">
-                    {attentionModules.map((row, idx) => {
-                      const isLowMoy = row.moyenne !== null && row.moyenne < 10.0;
-                      const isLowTaux = row.taux_reussite < 55;
-                      const targetId = row.id_mod || row.module;
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-cream-200/80 bg-cream-50/50 text-[11px] font-bold text-ink/50 uppercase tracking-wider">
+                        <th className="py-3 px-6">Module</th>
+                        <th className="py-3 px-6">Moyenne</th>
+                        <th className="py-3 px-6">Taux de Réussite</th>
+                        <th className="py-3 px-6">Taux d'Échec</th>
+                        <th className="py-3 px-6">Risque</th>
+                        <th className="py-3 px-6 text-right">Détails</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-cream-100 text-xs">
+                      {paginatedAttentionModules.map((row, idx) => {
+                        const isLowMoy = row.moyenne !== null && row.moyenne < 10.0;
+                        const isLowTaux = row.taux_reussite < 55;
+                        const targetId = row.id_mod || row.module;
 
-                      return (
-                        <tr
-                          key={idx}
-                          onClick={() => navigate(`/modules/${targetId}`)}
-                          className="hover:bg-cream-50/60 transition-colors cursor-pointer group"
-                        >
-                          <td className="py-4 px-6 font-semibold text-ink text-[13px] group-hover:text-navy-700 transition">
-                            {row.module}
-                          </td>
-                          <td
-                            className={`py-4 px-6 ${
-                              isLowMoy ? 'font-bold text-maroon-600' : 'font-semibold text-ink'
-                            }`}
+                        return (
+                          <tr
+                            key={row.id_mod || idx}
+                            onClick={() => navigate(`/modules/${targetId}`)}
+                            className="hover:bg-cream-50/60 transition-colors cursor-pointer group"
                           >
-                            {row.moyenne !== null ? Number(row.moyenne).toFixed(1) : '—'}
-                          </td>
-                          <td
-                            className={`py-4 px-6 ${
-                              isLowTaux ? 'font-bold text-maroon-600' : 'font-semibold text-ink'
-                            }`}
-                          >
-                            {row.taux_reussite}%
-                          </td>
-                          <td className="py-4 px-6 font-normal text-ink/80">
-                            {row.taux_echec}%
-                          </td>
-                          <td className="py-4 px-6">
-                            <span
-                              className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                row.risque === 'Élevé'
-                                  ? 'bg-maroon-50 text-maroon-600 border border-maroon-200/60'
-                                  : 'bg-amber-50 text-amber-800 border border-amber-200/60'
+                            <td className="py-4 px-6 font-semibold text-ink text-[13px] group-hover:text-navy-700 transition">
+                              {row.module}
+                            </td>
+                            <td
+                              className={`py-4 px-6 ${
+                                isLowMoy ? 'font-bold text-maroon-600' : 'font-semibold text-ink'
                               }`}
                             >
-                              {row.risque}
-                            </span>
-                          </td>
-                          <td className="py-4 px-6 text-right">
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-navy-600 group-hover:text-navy-800 transition">
-                              Fiche module <ChevronRight size={13} />
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                              {row.moyenne !== null ? Number(row.moyenne).toFixed(1) : '—'}
+                            </td>
+                            <td
+                              className={`py-4 px-6 ${
+                                isLowTaux ? 'font-bold text-maroon-600' : 'font-semibold text-ink'
+                              }`}
+                            >
+                              {row.taux_reussite}%
+                            </td>
+                            <td className="py-4 px-6 font-normal text-ink/80">
+                              {row.taux_echec}%
+                            </td>
+                            <td className="py-4 px-6">
+                              <span
+                                className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                  row.risque === 'Élevé'
+                                    ? 'bg-maroon-50 text-maroon-600 border border-maroon-200/60'
+                                    : 'bg-amber-50 text-amber-800 border border-amber-200/60'
+                                }`}
+                              >
+                                {row.risque}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6 text-right">
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-navy-600 group-hover:text-navy-800 transition">
+                                Fiche module <ChevronRight size={13} />
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Composant de pagination */}
+                <Pagination
+                  currentPage={attentionPage}
+                  totalItems={attentionModules.length}
+                  pageSize={attentionPageSize}
+                  onPageChange={setAttentionPage}
+                  onPageSizeChange={(sz) => {
+                    setAttentionPageSize(sz);
+                    setAttentionPage(1);
+                  }}
+                  itemLabel="modules sous surveillance"
+                />
+              </>
             )}
           </div>
         </div>

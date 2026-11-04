@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
+import Pagination from '../components/common/Pagination';
 import FiltersBar from '../components/dashboard/FiltersBar';
 import { getAnalyseEtudiants } from '../api/dashboardService';
 import { Search, Loader2 } from 'lucide-react';
@@ -12,6 +13,8 @@ export default function StudentsSearchPage() {
   const [search, setSearch] = useState('');
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -32,6 +35,17 @@ export default function StudentsSearchPage() {
     }, 250);
     return () => clearTimeout(timer);
   }, [loadData]);
+
+  // Réinitialiser la pagination lors des modifications de filtre ou de recherche
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, search]);
+
+  // Pagination des étudiants
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return students.slice(start, start + pageSize);
+  }, [students, currentPage, pageSize]);
 
   return (
     <MainLayout>
@@ -83,7 +97,7 @@ export default function StudentsSearchPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cream-100 text-xs">
-                {students.map((student) => {
+                {paginatedStudents.map((student) => {
                   const isMoyLow = student.moyenne !== null && student.moyenne < 10.0;
                   const isRefuse = student.statut === 'Refusé';
                   const hasRattrapage = student.rattrapage === 'Oui';
@@ -163,6 +177,15 @@ export default function StudentsSearchPage() {
                 })}
               </tbody>
             </table>
+            <Pagination
+              currentPage={currentPage}
+              totalItems={students.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[10, 20, 50]}
+              itemLabel="étudiants"
+            />
           </div>
         )}
       </div>

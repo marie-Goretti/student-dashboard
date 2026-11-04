@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
+import Pagination from '../components/common/Pagination';
 import { getModuleDetail } from '../api/dashboardService';
 import {
   ArrowLeft, BookOpen, Users, TrendingUp, Award, AlertTriangle,
@@ -23,6 +24,10 @@ export default function ModuleDetailPage() {
   const [selectedNiveau, setSelectedNiveau] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('evaluations'); // 'evaluations' | 'niveaux'
+  const [evalPage, setEvalPage] = useState(1);
+  const [evalPageSize, setEvalPageSize] = useState(10);
+  const [niveauxPage, setNiveauxPage] = useState(1);
+  const [niveauxPageSize, setNiveauxPageSize] = useState(10);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -57,6 +62,17 @@ export default function ModuleDetailPage() {
         (ev.niveau && ev.niveau.toLowerCase().includes(q))
     );
   }, [data?.evaluations, searchQuery]);
+
+  const paginatedEvaluations = useMemo(() => {
+    const start = (evalPage - 1) * evalPageSize;
+    return filteredEvaluations.slice(start, start + evalPageSize);
+  }, [filteredEvaluations, evalPage, evalPageSize]);
+
+  const paginatedNiveaux = useMemo(() => {
+    const list = data?.niveaux || [];
+    const start = (niveauxPage - 1) * niveauxPageSize;
+    return list.slice(start, start + niveauxPageSize);
+  }, [data?.niveaux, niveauxPage, niveauxPageSize]);
 
   if (loading && !data) {
     return (
@@ -188,14 +204,14 @@ export default function ModuleDetailPage() {
 
       {/* Grille des KPIs clés */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 mb-6">
-        {/* KPI 1 : Évaluations */}
+        {/* KPI 1 : Effectif Étudiants */}
         <div className="bg-white rounded-2xl border border-cream-200 p-4 shadow-xs">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold uppercase text-ink/50">Évaluations</span>
-            <FileText size={15} className="text-navy-600" />
+            <span className="text-[11px] font-bold uppercase text-ink/50">Effectif Étudiants</span>
+            <Users size={15} className="text-navy-600" />
           </div>
-          <p className="text-xl font-bold text-ink">{kpi?.total_evaluations ?? 0}</p>
-          <p className="text-[11px] text-ink/40 mt-1">{kpi?.total_etudiants ?? 0} étudiants distincts</p>
+          <p className="text-xl font-bold text-ink">{kpi?.total_etudiants ?? 0}</p>
+          <p className="text-[11px] text-ink/40 mt-1">{kpi?.total_etudiants > 1 ? 'étudiants évalués' : 'étudiant évalué'}</p>
         </div>
 
         {/* KPI 2 : Moyenne générale */}
@@ -365,7 +381,7 @@ export default function ModuleDetailPage() {
                 type="text"
                 placeholder="Rechercher étudiant, matricule, niveau..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setEvalPage(1); }}
                 className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-cream-200 text-xs text-ink placeholder:text-ink/40 focus:outline-navy-600"
               />
             </div>
@@ -394,7 +410,7 @@ export default function ModuleDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cream-100 text-xs">
-                  {filteredEvaluations.map((ev) => {
+                  {paginatedEvaluations.map((ev) => {
                     const isMoyLow = ev.moyenne !== null && ev.moyenne < 10.0;
                     return (
                       <tr
@@ -476,6 +492,15 @@ export default function ModuleDetailPage() {
                 </tbody>
               </table>
             )}
+            <Pagination
+              currentPage={evalPage}
+              totalItems={filteredEvaluations.length}
+              pageSize={evalPageSize}
+              onPageChange={setEvalPage}
+              onPageSizeChange={setEvalPageSize}
+              pageSizeOptions={[10, 20, 50]}
+              itemLabel="évaluations"
+            />
           </div>
         )}
 
@@ -494,7 +519,7 @@ export default function ModuleDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cream-100 text-xs">
-                {(niveaux || []).map((n) => {
+                {paginatedNiveaux.map((n) => {
                   const isLow = n.moyenne !== null && n.moyenne < 10.0;
                   return (
                     <tr
@@ -535,6 +560,15 @@ export default function ModuleDetailPage() {
                 })}
               </tbody>
             </table>
+            <Pagination
+              currentPage={niveauxPage}
+              totalItems={niveaux?.length || 0}
+              pageSize={niveauxPageSize}
+              onPageChange={setNiveauxPage}
+              onPageSizeChange={setNiveauxPageSize}
+              pageSizeOptions={[10, 20, 50]}
+              itemLabel="promotions"
+            />
           </div>
         )}
       </div>

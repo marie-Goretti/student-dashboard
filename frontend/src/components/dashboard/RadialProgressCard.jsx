@@ -3,6 +3,7 @@ export default function RadialProgressCard({
   title = 'Résultats académiques',
   subtitle = 'Répartition de la cohorte',
   period = 'Global',
+  showLegend = false,
 }) {
   const value = kpi?.taux_reussite !== undefined ? Math.round(kpi.taux_reussite) : 66;
   const radius = 58;
@@ -23,8 +24,8 @@ export default function RadialProgressCard({
         </span>
       </div>
 
-      {/* Anneau circulaire */}
-      <div className="relative flex items-center justify-center py-1">
+      {/* Anneau circulaire centré */}
+      <div className="relative flex-1 flex items-center justify-center py-2">
         <svg width="150" height="150" viewBox="0 0 150 150" className="-rotate-90">
           {/* Piste arrière-plan */}
           <circle
@@ -60,21 +61,22 @@ export default function RadialProgressCard({
         </div>
       </div>
 
-      {/* Légende en bas */}
-      <div className="flex items-center justify-center gap-4 text-[11px] text-ink/60">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#2C4A6E]" />
-          <span>Admis</span>
+      {showLegend && (
+        <div className="flex items-center justify-center gap-4 text-[11px] text-ink/60">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#2C4A6E]" />
+            <span>Admis</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#7A1620]" />
+            <span>Refusés</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#D5CEBE]" />
+            <span>Autres</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#7A1620]" />
-          <span>Refusés</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#D5CEBE]" />
-          <span>Autres</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

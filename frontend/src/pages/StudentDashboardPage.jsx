@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import StudentSearchBar from '../components/students/StudentSearchBar';
 import KpiCard from '../components/dashboard/KpiCard';
 import LineChartCard from '../components/dashboard/LineChartCard';
+import Pagination from '../components/common/Pagination';
 import { getStudentDashboard } from '../api/dashboardService';
 import { getAnnees } from '../api/academicsService';
 import { BookOpen, TrendingUp, Award, RotateCcw, ArrowLeft, Mail, Calendar, Filter, CheckCircle2, XCircle, Info, Sparkles } from 'lucide-react';
@@ -28,6 +29,8 @@ export default function StudentDashboardPage() {
   const [error, setError] = useState(null);
   const [anneesList, setAnneesList] = useState([]);
   const [studentFilters, setStudentFilters] = useState({ id_annee: '', semestre: '' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     getAnnees()
@@ -48,6 +51,18 @@ export default function StudentDashboardPage() {
       .catch((err) => setError(err?.response?.data?.error || "Étudiant introuvable."))
       .finally(() => setLoading(false));
   }, [id, studentFilters]);
+
+  // Réinitialiser la pagination si l'étudiant ou les filtres changent
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [id, studentFilters]);
+
+  // Découpage paginé des modules
+  const paginatedModules = useMemo(() => {
+    const list = data?.modules || [];
+    const start = (currentPage - 1) * pageSize;
+    return list.slice(start, start + pageSize);
+  }, [data?.modules, currentPage, pageSize]);
 
   const hasFilters = Boolean(studentFilters.id_annee || studentFilters.semestre);
 
@@ -109,16 +124,14 @@ export default function StudentDashboardPage() {
           </div>
 
           {/* --- Relevé de notes détaillé avec filtres --- */}
-          <div className="bg-white rounded-xl shadow-sm border p-5">
+          <div className="bg-white rounded-xl shadow-sm border p-6 mb-8">
             <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
               <div>
-                <h3 className="font-semibold text-gray-800 text-base">Relevé de notes détaillé</h3>
-                <p className="text-xs text-gray-500">
-                  {data.modules?.length ?? 0} évaluation{data.modules?.length > 1 ? 's' : ''} affichée{data.modules?.length > 1 ? 's' : ''}
-                </p>
+                <h3 className="font-bold text-gray-900 text-base">Relevé des Notes & Validation des Modules</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Historique des évaluations par matière, session normale et session de rattrapage.</p>
               </div>
 
-              {/* Filtres : Année Académique & Semestre */}
+              {/* Filtres contextuels */}
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Filtre Année */}
                 <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-xs">
@@ -165,8 +178,8 @@ export default function StudentDashboardPage() {
               </div>
             </div>
 
-            {/* Note explicative sur la règle du rattrapage 40% / 60% */}
-            <div className="mb-4 p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-start gap-2.5 text-xs text-amber-900">
+            {/* Légende explicative du système 40/60 */}
+            <div className="mb-4 p-3 bg-amber-50/60 border border-amber-200/80 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
               <Info size={16} className="text-amber-700 shrink-0 mt-0.5" />
               <p className="leading-relaxed">
                 <span className="font-semibold text-amber-950">Règle de validation des rattrapages :</span> Lorsqu'un étudiant n'atteint pas 10/20 en session normale (40% Devoir + 60% Examen), il passe en rattrapage. La note de rattrapage remplace la note d'examen (conservée pour historique) dans le calcul : <span className="font-semibold">40% Devoir (CC) + 60% Rattrapage</span>. Si cette moyenne recalculée atteint <span className="font-semibold text-emerald-800">≥ 10/20</span>, le module est validé (<span className="font-semibold text-emerald-800">Admis</span>), sinon il est définitivement ajourné.
@@ -196,7 +209,7 @@ export default function StudentDashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(data.modules || []).map((m, i) => {
+                    {paginatedModules.map((m, i) => {
                       const semLabel = m.semestre ? (String(m.semestre).startsWith('S') ? m.semestre : `S${m.semestre}`) : '—';
                       const hasRat = m.note_rattrapage !== null && m.note_rattrapage !== undefined;
                       const isAdmisNormal = m.resultat === 'ADMIS' || (m.moyenne !== null && m.moyenne >= 10);
@@ -284,6 +297,15 @@ export default function StudentDashboardPage() {
                     })}
                   </tbody>
                 </table>
+                <Pagination
+                  currentPage={currentPage}
+                  totalItems={data.modules?.length || 0}
+                  pageSize={pageSize}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                  pageSizeOptions={[10, 20, 50]}
+                  itemLabel="modules"
+                />
               </div>
             )}
           </div>

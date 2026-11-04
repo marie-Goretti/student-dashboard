@@ -554,8 +554,8 @@ def get_analyse_modules(filters: dict) -> dict:
             'risque': risque,
         })
 
-    sorted_top = sorted(modules_stats, key=lambda x: (x['moyenne'], x['taux_reussite']), reverse=True)[:5]
-    sorted_attention = sorted(modules_stats, key=lambda x: (x['moyenne'], -x['taux_echec']))[:5]
+    sorted_top = sorted(modules_stats, key=lambda x: (x['moyenne'], x['taux_reussite']), reverse=True)
+    sorted_attention = sorted(modules_stats, key=lambda x: (x['moyenne'], -x['taux_echec']))
 
     return {
         'top_modules': sorted_top,

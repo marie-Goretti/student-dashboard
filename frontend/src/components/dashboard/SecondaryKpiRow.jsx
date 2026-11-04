@@ -1,6 +1,9 @@
-import { CheckCircle2, XCircle, RotateCcw, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, RotateCcw, AlertTriangle, ArrowUpRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function SecondaryKpiRow({ kpi }) {
+  const navigate = useNavigate();
+
   const formatNumber = (val) => {
     if (val === null || val === undefined) return '—';
     return Number(val).toLocaleString('fr-FR');
@@ -14,74 +17,84 @@ export default function SecondaryKpiRow({ kpi }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3.5">
       {/* 1. Taux de réussite */}
-      <div className="bg-white rounded-xl p-3 border border-cream-200 shadow-xs flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
-          <CheckCircle2 size={18} />
-        </div>
-        <div className="flex-1 min-w-0">
+      <div className="bg-white rounded-xl p-3 md:p-3.5 shadow-xs border border-cream-200/80 flex flex-col justify-between">
+        <div className="flex items-center justify-between text-ink/70 mb-1.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-lg md:text-xl font-bold text-ink tracking-tight font-sans">
-              {kpi?.taux_reussite !== undefined ? formatPercent(kpi.taux_reussite) : '65,97%'}
-            </span>
-            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded-full">
-              +3,4%
-            </span>
+            <CheckCircle2 size={14} className="text-emerald-600" />
+            <span className="text-[11px] font-bold text-ink/70">Taux de réussite</span>
           </div>
-          <p className="text-[11px] text-ink/50 mt-0.5 truncate">Taux de réussite</p>
+          <ArrowUpRight size={14} className="text-ink/30" />
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-xl md:text-2xl font-bold text-ink tracking-tight font-sans">
+            {kpi?.taux_reussite !== undefined ? formatPercent(kpi.taux_reussite) : '68,09%'}
+          </span>
+          <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+            +3,4%
+          </span>
         </div>
       </div>
 
       {/* 2. Taux d'échec */}
-      <div className="bg-white rounded-xl p-3 border border-cream-200 shadow-xs flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-maroon-50 text-maroon-500 flex items-center justify-center shrink-0 border border-maroon-100">
-          <XCircle size={18} />
-        </div>
-        <div className="flex-1 min-w-0">
+      <div className="bg-white rounded-xl p-3 md:p-3.5 shadow-xs border border-cream-200/80 flex flex-col justify-between">
+        <div className="flex items-center justify-between text-ink/70 mb-1.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-lg md:text-xl font-bold text-ink tracking-tight font-sans">
-              {kpi?.taux_echec !== undefined ? formatPercent(kpi.taux_echec) : '29,88%'}
-            </span>
-            <span className="text-[10px] font-semibold text-maroon-500 bg-maroon-50 px-1.5 py-0.2 rounded-full">
-              -1,7%
-            </span>
+            <XCircle size={14} className="text-maroon-600" />
+            <span className="text-[11px] font-bold text-ink/70">Taux d'échec</span>
           </div>
-          <p className="text-[11px] text-ink/50 mt-0.5 truncate">Taux d'échec</p>
+          <ArrowUpRight size={14} className="text-ink/30" />
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-xl md:text-2xl font-bold text-ink tracking-tight font-sans">
+            {kpi?.taux_echec !== undefined ? formatPercent(kpi.taux_echec) : '28,49%'}
+          </span>
+          <span className="text-[10px] font-semibold text-maroon-600 bg-rose-50 px-1.5 py-0.5 rounded-full">
+            -1,7%
+          </span>
         </div>
       </div>
 
       {/* 3. Au rattrapage */}
-      <div className="bg-white rounded-xl p-3 border border-cream-200 shadow-xs flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100">
-          <RotateCcw size={18} />
-        </div>
-        <div className="flex-1 min-w-0">
+      <div
+        onClick={() => navigate('/rattrapages')}
+        className="bg-white rounded-xl p-3 md:p-3.5 shadow-xs border border-cream-200/80 flex flex-col justify-between cursor-pointer hover:border-cream-300 transition"
+      >
+        <div className="flex items-center justify-between text-ink/70 mb-1.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-lg md:text-xl font-bold text-ink tracking-tight font-sans">
-              {kpi?.total_rattrapage !== undefined ? formatNumber(kpi.total_rattrapage) : '1 245'}
-            </span>
-            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.2 rounded-full">
-              +4,2%
-            </span>
+            <RotateCcw size={14} className="text-amber-600" />
+            <span className="text-[11px] font-bold text-ink/70">Au rattrapage</span>
           </div>
-          <p className="text-[11px] text-ink/50 mt-0.5 truncate">Au rattrapage</p>
+          <ArrowUpRight size={14} className="text-ink/30" />
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-xl md:text-2xl font-bold text-ink tracking-tight font-sans">
+            {kpi?.total_rattrapage !== undefined ? formatNumber(kpi.total_rattrapage) : '983'}
+          </span>
+          <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">
+            +4,2%
+          </span>
         </div>
       </div>
 
       {/* 4. Modules à risque */}
-      <div className="bg-white rounded-xl p-3 border border-cream-200 shadow-xs flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-rose-50 text-maroon-600 flex items-center justify-center shrink-0 border border-rose-100">
-          <AlertTriangle size={18} />
-        </div>
-        <div className="flex-1 min-w-0">
+      <div
+        onClick={() => navigate('/recommandations')}
+        className="bg-white rounded-xl p-3 md:p-3.5 shadow-xs border border-cream-200/80 flex flex-col justify-between cursor-pointer hover:border-cream-300 transition"
+      >
+        <div className="flex items-center justify-between text-ink/70 mb-1.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-lg md:text-xl font-bold text-ink tracking-tight font-sans">
-              {kpi?.modules_a_risque !== undefined ? kpi.modules_a_risque : '23'}
-            </span>
-            <span className="text-[10px] font-semibold text-maroon-500 bg-rose-50 px-1.5 py-0.2 rounded-full">
-              -13,1%
-            </span>
+            <AlertTriangle size={14} className="text-maroon-600" />
+            <span className="text-[11px] font-bold text-ink/70">Modules à risque</span>
           </div>
-          <p className="text-[11px] text-ink/50 mt-0.5 truncate">Modules à risque</p>
+          <ArrowUpRight size={14} className="text-ink/30" />
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-xl md:text-2xl font-bold text-ink tracking-tight font-sans">
+            {kpi?.modules_a_risque !== undefined ? kpi.modules_a_risque : '44'}
+          </span>
+          <span className="text-[10px] font-semibold text-maroon-600 bg-rose-50 px-1.5 py-0.5 rounded-full">
+            -13,1%
+          </span>
         </div>
       </div>
     </div>
