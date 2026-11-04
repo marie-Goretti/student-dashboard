@@ -149,26 +149,6 @@ export default function FiltersBar({
             </select>
           </div>
         )}
-
-        {/* Module (réduit et compact) */}
-        {showModule && (
-          <div className={selectContainerClass}>
-            <span className={labelClass}>Module</span>
-            <select
-              className={`${selectClass} max-w-[85px] sm:max-w-[95px] truncate`}
-              value={filters.id_mod || ''}
-              onChange={(e) => handleChange('id_mod', e.target.value)}
-              title={modules.find((m) => String(m.id_mod) === String(filters.id_mod))?.nom_mod || 'Tous les modules'}
-            >
-              <option value="">Tous</option>
-              {modules.map((m) => (
-                <option key={m.id_mod} value={m.id_mod} title={m.nom_mod}>
-                  {m.code_mod ? `${m.code_mod} - ${m.nom_mod}` : m.nom_mod}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
       </div>
 
       {/* Bouton Réinitialiser */}

@@ -4,11 +4,12 @@ import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
 import HeroBanner from '../components/dashboard/HeroBanner';
 import FiltersBar from '../components/dashboard/FiltersBar';
-import MoyenneParNiveauCard from '../components/dashboard/MoyenneParNiveauCard';
-import DevoirVsExamenCard from '../components/dashboard/DevoirVsExamenCard';
-import PointsClesCard from '../components/dashboard/PointsClesCard';
+import SecondaryKpiRow from '../components/dashboard/SecondaryKpiRow';
+import RadialProgressCard from '../components/dashboard/RadialProgressCard';
 import EvolutionReussiteCard from '../components/dashboard/EvolutionReussiteCard';
+import PointsClesCard from '../components/dashboard/PointsClesCard';
 import DistributionNotesCard from '../components/dashboard/DistributionNotesCard';
+import DevoirVsExamenCard from '../components/dashboard/DevoirVsExamenCard';
 import { getAnnees } from '../api/academicsService';
 import {
   getKpiSummary,
@@ -31,8 +32,6 @@ export default function DashboardPage() {
   const [distribution, setDistribution] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [anneesList, setAnneesList] = useState([]);
-
   // Charger la dernière année (la plus élevée) par défaut
   useEffect(() => {
     getAnnees()
@@ -40,7 +39,6 @@ export default function DashboardPage() {
         const list = (data.results ?? data)
           .filter((a) => a.annee_academique && a.annee_academique !== 'nan' && a.annee_academique !== 'None')
           .sort((a, b) => String(b.annee_academique).localeCompare(String(a.annee_academique)));
-        setAnneesList(list);
         if (list.length > 0) {
           setFilters({ id_annee: list[0].id_annee });
         }
@@ -94,7 +92,7 @@ export default function DashboardPage() {
       {/* 1. En-tête : Titre */}
       <HeaderBar />
 
-      {/* 2. Hero Banner avec image de campus contenant les 4 KPIs : Nombre d'étudiants, Moyenne générale, Taux de réussite, Taux d'échec */}
+      {/* 2. Hero Banner compact avec 4 indicateurs clés */}
       <HeroBanner
         kpi={kpi}
         onAlertClick={() => {
@@ -102,41 +100,44 @@ export default function DashboardPage() {
         }}
       />
 
-      {/* 3. Barre de filtres : sans module, avec semestre, et année par défaut sur la plus élevée */}
+      {/* 3. Barre de filtres compacte */}
       <FiltersBar
         filters={filters}
         onChange={setFilters}
-        showModule={false}
+        showModule={true}
         showSemestre={true}
         defaultLatestAnnee={true}
       />
 
-      {/* 5. Section des graphiques demandés */}
+      {/* 4. Rangée secondaire des 4 métriques opérationnelles */}
+      <SecondaryKpiRow kpi={kpi} />
+
+      {/* 5. Section analytique principale : 3 colonnes compactes */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-3 border-navy-600 border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center justify-center py-16">
+          <div className="flex flex-col items-center gap-2.5">
+            <div className="w-7 h-7 border-3 border-navy-600 border-t-transparent rounded-full animate-spin" />
             <p className="text-xs text-ink/50">Mise à jour des analyses en cours...</p>
           </div>
         </div>
       ) : (
-        <div className="space-y-5">
-          {/* Rangée 1 : 3 graphiques (Moyenne par niveau, Évolution linéaire de la réussite, Points clés détectés) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
-            <MoyenneParNiveauCard data={parNiveau} />
+        <div className="space-y-3.5">
+          {/* Rangée 1 : 3 cartes (Résultats académiques donut, Évolution de la réussite, Points clés détectés) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 items-stretch">
+            <RadialProgressCard kpi={kpi} />
             <EvolutionReussiteCard data={evolution} />
             <PointsClesCard points={pointsCles} />
           </div>
 
-          {/* Rangée 2 : 2 graphiques larges (Devoir vs examen final moyenne, Distribution des notes) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
-            <DevoirVsExamenCard data={devoirVsExamen} />
+          {/* Rangée 2 : Distribution des notes et Devoir vs Examen */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 items-stretch">
             <DistributionNotesCard
               data={distribution}
               onExploreClick={() => {
                 navigate('/students');
               }}
             />
+            <DevoirVsExamenCard data={devoirVsExamen} />
           </div>
         </div>
       )}

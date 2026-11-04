@@ -1,74 +1,78 @@
-import { Settings2 } from 'lucide-react';
-
-/**
- * Jauge circulaire façon "Growth 62%" de la maquette de référence :
- * anneau de progression avec la valeur au centre, piste pointillée pour
- * la partie non remplie, libellé en bas à gauche, bouton rond en bas à
- * droite.
- *
- * - value       : 0 à 100, détermine le remplissage de l'anneau
- * - displayText : texte affiché au centre (ex: "62%" ou "11.6/20")
- * - label       : légende en bas à gauche (ex: "Academy growth")
- * - color       : couleur de l'anneau rempli (classe Tailwind, ex: 'stroke-navy-500')
- */
 export default function RadialProgressCard({
-  title,
+  kpi,
+  title = 'Résultats académiques',
+  subtitle = 'Répartition de la cohorte',
   period = 'Global',
-  value,
-  displayText,
-  label,
-  color = '#2C4A6E',
-  icon: Icon = Settings2,
 }) {
-  const radius = 70;
+  const value = kpi?.taux_reussite !== undefined ? Math.round(kpi.taux_reussite) : 66;
+  const radius = 58;
   const circumference = 2 * Math.PI * radius;
-  const filled = Math.max(0, Math.min(100, value ?? 0));
+  const filled = Math.max(0, Math.min(100, value));
   const offset = circumference * (1 - filled / 100);
 
   return (
-    <div className="bg-white rounded-2xl border border-cream-200 shadow-sm p-5 flex flex-col">
+    <div className="bg-white rounded-2xl border border-cream-200 shadow-xs p-4 flex flex-col justify-between h-[260px]">
       {/* En-tête */}
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold text-ink text-[15px]">{title}</h3>
-        <span className="flex items-center gap-1 text-xs text-ink/50 bg-cream-100 rounded-full px-3 py-1">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-bold text-ink text-sm tracking-tight">{title}</h3>
+          <p className="text-xs text-ink/40 mt-0.5">{subtitle}</p>
+        </div>
+        <span className="text-[11px] font-semibold text-ink/50 bg-cream-100 rounded-full px-2.5 py-0.5">
           {period}
         </span>
       </div>
 
-      {/* Jauge */}
-      <div className="relative flex-1 flex items-center justify-center py-2">
-        <svg width="180" height="180" viewBox="0 0 180 180" className="-rotate-90">
-          {/* Piste non remplie, en pointillés */}
+      {/* Anneau circulaire */}
+      <div className="relative flex items-center justify-center py-1">
+        <svg width="150" height="150" viewBox="0 0 150 150" className="-rotate-90">
+          {/* Piste arrière-plan */}
           <circle
-            cx="90" cy="90" r={radius}
+            cx="75"
+            cy="75"
+            r={radius}
             fill="none"
-            stroke="#E4E0D6"
+            stroke="#EFEAE0"
             strokeWidth="12"
-            strokeDasharray="1 9"
-            strokeLinecap="round"
           />
-          {/* Arc rempli */}
+          {/* Arc rempli réussite */}
           <circle
-            cx="90" cy="90" r={radius}
+            cx="75"
+            cy="75"
+            r={radius}
             fill="none"
-            stroke={color}
+            stroke="#2C4A6E"
             strokeWidth="12"
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             strokeLinecap="round"
-            style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+            style={{ transition: 'stroke-dashoffset 0.8s ease' }}
           />
         </svg>
-        <span className="absolute font-serif text-3xl font-semibold text-ink">
-          {displayText ?? '—'}
-        </span>
+
+        <div className="absolute flex flex-col items-center justify-center text-center">
+          <span className="text-2xl font-black text-ink tracking-tight font-sans">
+            {value}%
+          </span>
+          <span className="text-[10px] font-medium text-ink/50 -mt-0.5">
+            de réussite
+          </span>
+        </div>
       </div>
 
-      {/* Pied de carte */}
-      <div className="flex items-center justify-between mt-2">
-        <p className="text-sm text-ink/50">{label}</p>
-        <div className="w-9 h-9 rounded-full bg-ink flex items-center justify-center text-white shrink-0">
-          <Icon size={15} />
+      {/* Légende en bas */}
+      <div className="flex items-center justify-center gap-4 text-[11px] text-ink/60">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-[#2C4A6E]" />
+          <span>Admis</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-[#7A1620]" />
+          <span>Refusés</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-[#D5CEBE]" />
+          <span>Autres</span>
         </div>
       </div>
     </div>

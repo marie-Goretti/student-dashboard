@@ -12,14 +12,14 @@ export default function HeaderBar({
   const activeSubtitle = subtitle || '';
 
   return (
-    <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3.5">
       {/* Titre & sous-titre */}
       <div>
-        <h1 className="text-2xl md:text-[26px] font-bold text-ink tracking-tight font-sans">
+        <h1 className="text-xl md:text-2xl font-bold text-ink tracking-tight font-sans">
           {title}
         </h1>
         {activeSubtitle && (
-          <p className="text-xs md:text-sm text-ink/50 mt-0.5">
+          <p className="text-xs text-ink/50 mt-0.5">
             {activeSubtitle}
           </p>
         )}
@@ -28,12 +28,12 @@ export default function HeaderBar({
       {/* Barre d'outils droite : Recherche, Notification, Profil */}
       <div className="flex items-center gap-3">
         {/* Champ de recherche */}
-        <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2 border border-cream-200 shadow-xs w-60 md:w-72">
-          <Search size={16} className="text-ink/40 shrink-0" />
+        <div className="flex items-center gap-2 bg-white rounded-full px-4 py-1.5 border border-cream-200 shadow-xs w-60 md:w-72">
+          <Search size={15} className="text-ink/40 shrink-0" />
           <input
             type="text"
             placeholder="Rechercher dans EduPulse"
-            className="bg-transparent text-sm w-full outline-none placeholder:text-ink/40 text-ink"
+            className="bg-transparent text-xs w-full outline-none placeholder:text-ink/40 text-ink"
           />
         </div>
 
@@ -41,14 +41,14 @@ export default function HeaderBar({
         <NotificationsDropdown />
 
         {/* Avatar Administrateur */}
-        <div className="flex items-center gap-2.5 bg-white border border-cream-200 rounded-full px-3 py-1.5 shadow-xs cursor-pointer hover:bg-cream-100 transition">
-          <div className="w-7 h-7 rounded-full bg-ink text-white font-semibold text-xs flex items-center justify-center">
+        <div className="flex items-center gap-2 bg-white border border-cream-200 rounded-full px-3 py-1 shadow-xs cursor-pointer hover:bg-cream-100 transition">
+          <div className="w-6 h-6 rounded-full bg-ink text-white font-semibold text-[11px] flex items-center justify-center">
             AD
           </div>
           <span className="text-xs font-semibold text-ink hidden md:inline">
             Administrateur
           </span>
-          <ChevronDown size={14} className="text-ink/50" />
+          <ChevronDown size={13} className="text-ink/50" />
         </div>
       </div>
     </header>
