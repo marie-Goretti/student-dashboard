@@ -43,7 +43,7 @@ export default function BarChartCard({
           <BarChart
             data={data}
             barCategoryGap="25%"
-            margin={angledLabels ? { top: 4, right: 4, left: -18, bottom: 28 } : { top: 4, right: 4, left: -18, bottom: 0 }}
+            margin={angledLabels ? { top: 4, right: 4, left: 0, bottom: 28 } : { top: 4, right: 4, left: 0, bottom: 0 }}
           >
             <CartesianGrid vertical={false} stroke="#EFEAE0" strokeDasharray="3 3" />
             <XAxis
@@ -56,12 +56,7 @@ export default function BarChartCard({
               textAnchor={angledLabels ? 'end' : 'middle'}
               height={angledLabels ? 40 : 30}
             />
-            <YAxis
-              tick={{ fontSize: 11, fill: '#0B1220', fillOpacity: 0.5 }}
-              axisLine={false}
-              tickLine={false}
-              width={28}
-            />
+            <YAxis hide />
             <Tooltip
               cursor={{ fill: '#F3EFE7' }}
               contentStyle={{ borderRadius: 12, border: '1px solid #EFEAE0', fontSize: 13 }}

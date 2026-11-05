@@ -50,7 +50,7 @@ export default function EvolutionReussiteCard({
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={chartData}
-              margin={{ top: 8, right: 8, left: -20, bottom: 2 }}
+              margin={{ top: 8, right: 8, left: 0, bottom: 2 }}
             >
               <defs>
                 <linearGradient id="moyLinearGrad" x1="0" y1="0" x2="0" y2="1">
@@ -65,14 +65,7 @@ export default function EvolutionReussiteCard({
                 axisLine={false}
                 tickLine={false}
               />
-              <YAxis
-                domain={[0, 20]}
-                ticks={[0, 5, 10, 15, 20]}
-                tick={{ fontSize: 10, fill: '#0B1220', fillOpacity: 0.5 }}
-                axisLine={false}
-                tickLine={false}
-                width={30}
-              />
+              <YAxis hide domain={[0, 20]} />
               <ReferenceLine y={10} stroke="#7A1620" strokeDasharray="3 3" strokeOpacity={0.4} />
               <Tooltip content={<CustomTooltip />} />
               <Area

@@ -283,7 +283,7 @@ export default function RattrapagesPage() {
                 <BarChart
                   data={chartData}
                   barGap={4}
-                  margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
                 >
                   <CartesianGrid
                     vertical={false}
@@ -296,13 +296,7 @@ export default function RattrapagesPage() {
                     axisLine={false}
                     tickLine={false}
                   />
-                  <YAxis
-                    domain={[0, 14]}
-                    ticks={[0, 4, 8, 14]}
-                    tick={{ fontSize: 11, fill: '#0B1220', fillOpacity: 0.5 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
+                  <YAxis hide domain={[0, 14]} />
                   <Tooltip content={<CustomChartTooltip />} />
                   <Bar
                     dataKey="avant"

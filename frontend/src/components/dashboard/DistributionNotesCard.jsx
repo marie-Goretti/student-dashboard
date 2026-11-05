@@ -63,7 +63,7 @@ export default function DistributionNotesCard({ data, onExploreClick }) {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
-              margin={{ top: 6, right: 8, left: -20, bottom: 2 }}
+              margin={{ top: 6, right: 8, left: 0, bottom: 2 }}
             >
               <CartesianGrid vertical={false} stroke="#EFEAE0" strokeDasharray="3 3" />
               <XAxis
@@ -72,12 +72,7 @@ export default function DistributionNotesCard({ data, onExploreClick }) {
                 axisLine={false}
                 tickLine={false}
               />
-              <YAxis
-                tick={{ fontSize: 10, fill: '#0B1220', fillOpacity: 0.5 }}
-                axisLine={false}
-                tickLine={false}
-                width={32}
-              />
+              <YAxis hide />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="effectif" radius={[4, 4, 0, 0]} barSize={22}>
                 {chartData.map((entry, index) => (

@@ -11,7 +11,7 @@ export default function LineChartCard({ title, data }) {
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="annee" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} />
+            <YAxis hide />
             <Tooltip />
             <Legend />
             <Line type="monotone" dataKey="moyenne" name="Moyenne générale" stroke="#2563eb" strokeWidth={2} />

@@ -269,10 +269,10 @@ export default function NiveauDetailPage() {
 
           <div className="h-[220px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={distribution} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
+              <BarChart data={distribution} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                 <CartesianGrid vertical={false} stroke="#EFEAE0" strokeDasharray="3 3" />
                 <XAxis dataKey="tranche" tick={{ fontSize: 11, fill: '#0B1220', fillOpacity: 0.6 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#0B1220', fillOpacity: 0.5 }} axisLine={false} tickLine={false} width={32} />
+                <YAxis hide />
                 <Tooltip
                   formatter={(val) => [`${val} évaluations`, 'Effectif']}
                   labelFormatter={(lbl) => `Tranche ${lbl}/20`}
@@ -302,10 +302,10 @@ export default function NiveauDetailPage() {
           {evolution && evolution.length > 0 ? (
             <div className="h-[220px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={evolution} margin={{ top: 8, right: 12, left: -20, bottom: 8 }}>
+                <LineChart data={evolution} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                   <CartesianGrid vertical={false} stroke="#EFEAE0" strokeDasharray="3 3" />
                   <XAxis dataKey="annee" tick={{ fontSize: 11, fill: '#0B1220', fillOpacity: 0.6 }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 20]} ticks={[0, 5, 10, 15, 20]} tick={{ fontSize: 11, fill: '#0B1220', fillOpacity: 0.5 }} axisLine={false} tickLine={false} width={32} />
+                  <YAxis hide domain={[0, 20]} />
                   <Tooltip
                     formatter={(val, name) => [
                       name === 'Moyenne' ? `${val}/20` : `${val}%`,

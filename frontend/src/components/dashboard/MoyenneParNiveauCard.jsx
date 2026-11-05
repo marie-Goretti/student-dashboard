@@ -52,7 +52,7 @@ export default function MoyenneParNiveauCard({ data }) {
             <BarChart
               data={chartData}
               barGap={4}
-              margin={{ top: 6, right: 8, left: -20, bottom: 2 }}
+              margin={{ top: 6, right: 8, left: 0, bottom: 2 }}
             >
               <CartesianGrid vertical={false} stroke="#EFEAE0" strokeDasharray="3 3" />
               <XAxis
@@ -61,14 +61,7 @@ export default function MoyenneParNiveauCard({ data }) {
                 axisLine={false}
                 tickLine={false}
               />
-              <YAxis
-                domain={[0, 20]}
-                ticks={[0, 5, 10, 15, 20]}
-                tick={{ fontSize: 10, fill: '#0B1220', fillOpacity: 0.5 }}
-                axisLine={false}
-                tickLine={false}
-                width={30}
-              />
+              <YAxis hide domain={[0, 20]} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="moyenne" radius={[4, 4, 0, 0]} barSize={22}>
                 {chartData.map((entry, index) => (

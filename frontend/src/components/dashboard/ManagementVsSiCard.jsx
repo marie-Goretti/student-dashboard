@@ -8,14 +8,6 @@ export default function ManagementVsSiCard({
   title = "Management vs Système d'Info",
   subtitle = "Comparaison des moyennes",
 }) {
-  // Extraire le groupe global pour les badges d'en-tête
-  const globalItem = useMemo(() => {
-    return (data || []).find((d) => (d.palier || d.groupe) === 'Global');
-  }, [data]);
-
-  const globalMgt = globalItem?.management ?? null;
-  const globalSi = globalItem?.systeme_information ?? null;
-
   // Filtrer les données pour les paliers B1, B2, B3, M1, M2
   const chartData = useMemo(() => {
     if (!data || !data.length) return [];
@@ -81,34 +73,14 @@ export default function ManagementVsSiCard({
 
   return (
     <div className="bg-white rounded-2xl border border-cream-200 shadow-xs p-4 flex flex-col justify-between h-[260px]">
-      {/* En-tête : Titre & Badges moyennes globales */}
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <div>
-          <h3 className="font-bold text-ink text-sm tracking-tight leading-tight">
-            {title}
-          </h3>
-          <p className="text-[11px] text-ink/40 mt-0.5">
-            {subtitle}
-          </p>
-        </div>
-
-        {/* Badges Globaux Management / SI */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#7A1620]/10 text-[#7A1620] border border-[#7A1620]/20"
-            title="Moyenne générale en Management"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#7A1620]" />
-            MGT {globalMgt !== null ? `${Number(globalMgt).toFixed(1)}` : '—'}
-          </span>
-          <span
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#2C4A6E]/10 text-[#2C4A6E] border border-[#2C4A6E]/20"
-            title="Moyenne générale en Système d'Information"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#2C4A6E]" />
-            SI {globalSi !== null ? `${Number(globalSi).toFixed(1)}` : '—'}
-          </span>
-        </div>
+      {/* En-tête : Titre & Sous-titre */}
+      <div className="mb-1">
+        <h3 className="font-bold text-ink text-sm tracking-tight leading-tight">
+          {title}
+        </h3>
+        <p className="text-[11px] text-ink/40 mt-0.5">
+          {subtitle}
+        </p>
       </div>
 
       {/* Graphique Barres Groupées */}
@@ -119,7 +91,7 @@ export default function ManagementVsSiCard({
               data={chartData}
               barGap={3}
               barCategoryGap="22%"
-              margin={{ top: 8, right: 8, left: -22, bottom: 2 }}
+              margin={{ top: 8, right: 8, left: 0, bottom: 2 }}
             >
               <CartesianGrid vertical={false} stroke="#EFEAE0" strokeDasharray="3 3" />
               <XAxis
@@ -128,14 +100,7 @@ export default function ManagementVsSiCard({
                 axisLine={false}
                 tickLine={false}
               />
-              <YAxis
-                domain={[0, 20]}
-                ticks={[0, 5, 10, 15, 20]}
-                tick={{ fontSize: 10, fill: '#0B1220', fillOpacity: 0.5 }}
-                axisLine={false}
-                tickLine={false}
-                width={28}
-              />
+              <YAxis hide domain={[0, 20]} />
               <ReferenceLine y={10} stroke="#7A1620" strokeDasharray="3 3" strokeOpacity={0.35} />
               <Tooltip content={<CustomTooltip />} />
               <Bar
