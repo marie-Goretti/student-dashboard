@@ -178,71 +178,52 @@ NIVEAUX_OFFICIELS = [
 
 def get_comparaison_filieres(filters: dict) -> list:
     """
-    Données du Clustered Bar Chart : comparaison de la moyenne entre les
-    deux filières (Management = codes finissant par 'M', Système
-    d'Information = codes finissant par 'SI').
+    Données de comparaison des moyennes entre les deux filières :
+    - Management (codes niveau finissant par 'M' hors 'SI' : B1M, B2M, B3M, M1M, M2M)
+    - Système d'Information (codes niveau finissant par 'SI' : B1SI, B2SI, B3SI, M1SI, M2SI)
 
-    Renvoie un premier groupe 'Global' (moyenne de toutes les évaluations
-    de chaque filière, tous niveaux confondus), puis un groupe par année
-    d'étude (B1, B2, B3, M1, M2) avec la moyenne de chaque filière.
+    Renvoie un premier groupe 'Global' (moyenne générale de chaque filière),
+    puis un groupe par cycle / palier (B1, B2, B3, M1, M2) pour un Clustered Bar Chart.
     """
-    qs = _apply_filters(FactEvaluation.objects.all(), filters)
-    qs = qs.exclude(moyenne__isnull=True).filter(id_niv__code_niv__in=NIVEAUX_OFFICIELS)
+    # On ignore le filtre filiere ici pour toujours pouvoir comparer les deux filières côte à côte
+    comp_filters = {k: v for k, v in (filters or {}).items() if k != 'filiere'}
+    qs = _apply_filters(FactEvaluation.objects.all(), comp_filters)
+    qs = qs.exclude(moyenne__isnull=True).exclude(id_niv__code_niv='NAN')
 
     def _round(value):
-        return round(value, 2) if value is not None else None
+        if value is None:
+            return None
+        return max(0.0, min(20.0, round(float(value), 2)))
 
-    # --- Groupe "Global" : moyenne pondérée par évaluation, par filière ---
-    global_management = qs.filter(id_niv__code_niv__endswith='M').aggregate(avg=Avg('moyenne'))['avg']
-    global_si = qs.filter(id_niv__code_niv__endswith='SI').aggregate(avg=Avg('moyenne'))['avg']
+    # --- Moyennes Globales ---
+    qs_mgt = qs.filter(Q(id_niv__code_niv__in=['B1M', 'B2M', 'B3M', 'M1M', 'M2M']) | Q(id_niv__code_niv__endswith='M')).exclude(id_niv__code_niv__endswith='SI')
+    qs_si = qs.filter(Q(id_niv__code_niv__in=['B1SI', 'B2SI', 'B3SI', 'M1SI', 'M2SI']) | Q(id_niv__code_niv__endswith='SI'))
+
+    global_mgt = qs_mgt.aggregate(avg=Avg('moyenne'))['avg']
+    global_si = qs_si.aggregate(avg=Avg('moyenne'))['avg']
+
     result = [{
         'groupe': 'Global',
-        'management': _round(global_management),
+        'palier': 'Global',
+        'management': _round(global_mgt),
         'systeme_information': _round(global_si),
     }]
 
-    # --- Un groupe par année d'étude ---
+    # --- Moyennes par cycle d'études (B1, B2, B3, M1, M2) ---
     par_niveau = {
         row['id_niv__code_niv']: row['moyenne']
         for row in qs.values('id_niv__code_niv').annotate(moyenne=Avg('moyenne'))
     }
+
     for prefix in ['B1', 'B2', 'B3', 'M1', 'M2']:
         result.append({
             'groupe': prefix,
+            'palier': prefix,
             'management': _round(par_niveau.get(f'{prefix}M')),
             'systeme_information': _round(par_niveau.get(f'{prefix}SI')),
         })
 
     return result
-
-
-def get_comparaison_filieres(filters: dict) -> list:
-    """
-    Compare la moyenne générale des deux filières (Management vs Système
-    d'Information), tous niveaux confondus — un seul chiffre par filière.
-    Dérivé des codes niveau officiels : tout code se terminant par 'M'
-    (hors 'SI') est Management, tout code se terminant par 'SI' est
-    Système d'Information.
-    """
-    qs = _apply_filters(FactEvaluation.objects.all(), filters).exclude(id_niv__code_niv='NAN')
-
-    management_avg = qs.filter(id_niv__code_niv__in=['B1M', 'B2M', 'B3M', 'M1M', 'M2M']).aggregate(
-        avg=Avg('moyenne')
-    )['avg']
-    si_avg = qs.filter(id_niv__code_niv__in=['B1SI', 'B2SI', 'B3SI', 'M1SI', 'M2SI']).aggregate(
-        avg=Avg('moyenne')
-    )['avg']
-
-    return [
-        {
-            'filiere': 'Management',
-            'moyenne': max(0.0, min(20.0, round(float(management_avg), 2))) if management_avg is not None else None,
-        },
-        {
-            'filiere': "Système d'Information",
-            'moyenne': max(0.0, min(20.0, round(float(si_avg), 2))) if si_avg is not None else None,
-        },
-    ]
 
 
 def get_top_modules(filters: dict, limit: int = 5) -> list:

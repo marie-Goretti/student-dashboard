@@ -5,7 +5,7 @@ import HeaderBar from '../components/layout/HeaderBar';
 import HeroBanner from '../components/dashboard/HeroBanner';
 import FiltersBar from '../components/dashboard/FiltersBar';
 import SecondaryKpiRow from '../components/dashboard/SecondaryKpiRow';
-import RadialProgressCard from '../components/dashboard/RadialProgressCard';
+import ManagementVsSiCard from '../components/dashboard/ManagementVsSiCard';
 import EvolutionReussiteCard from '../components/dashboard/EvolutionReussiteCard';
 import PointsClesCard from '../components/dashboard/PointsClesCard';
 import DistributionNotesCard from '../components/dashboard/DistributionNotesCard';
@@ -18,6 +18,7 @@ import {
   getPointsCles,
   getEvolutionParAnnee,
   getDistributionNotes,
+  getComparaisonFilieres,
 } from '../api/dashboardService';
 
 export default function DashboardPage() {
@@ -30,6 +31,7 @@ export default function DashboardPage() {
   const [pointsCles, setPointsCles] = useState([]);
   const [evolution, setEvolution] = useState([]);
   const [distribution, setDistribution] = useState([]);
+  const [comparaisonFilieres, setComparaisonFilieres] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Charger la dernière année (la plus élevée) par défaut
@@ -61,6 +63,7 @@ export default function DashboardPage() {
         pointsData,
         evolutionData,
         distribData,
+        filieresData,
       ] = await Promise.all([
         getKpiSummary(filters),
         getRepartitionParNiveau(filters),
@@ -68,6 +71,7 @@ export default function DashboardPage() {
         getPointsCles(filters),
         getEvolutionParAnnee(filters),
         getDistributionNotes(filters),
+        getComparaisonFilieres(filters),
       ]);
 
       setKpi(kpiData);
@@ -76,6 +80,7 @@ export default function DashboardPage() {
       setPointsCles(pointsData);
       setEvolution(evolutionData);
       setDistribution(distribData);
+      setComparaisonFilieres(filieresData);
     } catch (err) {
       console.error('Erreur chargement dashboard:', err);
     } finally {
@@ -122,15 +127,15 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="space-y-3.5">
-          {/* Rangée 1 : 3 cartes (Résultats académiques donut réduit, Évolution de la réussite élargi, Points clés détectés) */}
+          {/* Rangée 1 : 3 cartes (Management vs SI, Évolution de la réussite, Points clés détectés) */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-stretch">
-            <div className="md:col-span-5 lg:col-span-3 xl:col-span-3">
-              <RadialProgressCard kpi={kpi} />
+            <div className="md:col-span-6 lg:col-span-4 xl:col-span-4">
+              <ManagementVsSiCard data={comparaisonFilieres} />
             </div>
-            <div className="md:col-span-7 lg:col-span-5 xl:col-span-6">
+            <div className="md:col-span-6 lg:col-span-5 xl:col-span-5">
               <EvolutionReussiteCard data={evolution} />
             </div>
-            <div className="md:col-span-12 lg:col-span-4 xl:col-span-3">
+            <div className="md:col-span-12 lg:col-span-3 xl:col-span-3">
               <PointsClesCard points={pointsCles} />
             </div>
           </div>
