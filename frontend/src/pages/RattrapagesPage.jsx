@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
 import FiltersBar from '../components/dashboard/FiltersBar';
+import Pagination from '../components/common/Pagination';
 import { getAnalyseRattrapages } from '../api/dashboardService';
 import {
   Users,
@@ -487,35 +488,13 @@ export default function RattrapagesPage() {
             </div>
           </div>
 
-          {/* Pagination si plus d'une page */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-3 mt-3 border-t border-cream-100 text-xs text-ink/60">
-              <span>
-                Affichage de {(currentPage - 1) * pageSize + 1} à{' '}
-                {Math.min(currentPage * pageSize, filteredStudents.length)} sur{' '}
-                {filteredStudents.length}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="p-1 rounded-lg hover:bg-cream-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span className="font-semibold text-ink px-1.5">
-                  {currentPage} / {totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="p-1 rounded-lg hover:bg-cream-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredStudents.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
     </MainLayout>

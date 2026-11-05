@@ -110,13 +110,7 @@ export default function ModuleDetailPage() {
     <MainLayout>
       <HeaderBar
         title={`Fiche Module : ${module?.nom_mod || ''}`}
-        currentAnnee={
-          annees?.find((a) => String(a.id_annee) === String(selectedAnnee))?.annee_academique ||
-          annees?.find((a) => String(a.id_annee) === String(selectedAnnee))?.id_annee__annee_academique ||
-          annees?.[0]?.annee_academique ||
-          annees?.[0]?.id_annee__annee_academique ||
-          ''
-        }
+        showSubtitle={false}
       />
 
       {/* Navigation retour & Filtres */}
@@ -162,42 +156,6 @@ export default function ModuleDetailPage() {
                 </option>
               ))}
             </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Hero Banner du Module */}
-      <div className="bg-gradient-to-br from-navy-900 via-navy-800 to-navy-950 text-white rounded-3xl p-6 md:p-8 shadow-sm mb-6 relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-radial from-white/5 to-transparent pointer-events-none" />
-        <div className="relative z-10 flex items-start justify-between flex-wrap gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-cream-100 text-xs font-medium mb-3 backdrop-blur-xs">
-              <BookOpen size={14} className="text-cream-200" />
-              Code : <span className="font-mono font-bold text-white">{module.code_mod}</span>
-              {module.semestre && (
-                <>
-                  <span className="opacity-40">•</span>
-                  <span>Semestre {module.semestre}</span>
-                </>
-              )}
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white mb-2">
-              {module.nom_mod}
-            </h1>
-            <p className="text-xs md:text-sm text-cream-100/70 max-w-xl">
-              Analyse des résultats académiques pour ce module d'enseignement : suivi des taux de validation, dispersion devoirs/examen, et cohortes concernées.
-            </p>
-          </div>
-
-          {/* Badge résumé effectif */}
-          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-            <div className="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center text-white">
-              <Users size={22} />
-            </div>
-            <div>
-              <p className="text-[11px] text-cream-200/80 uppercase font-bold tracking-wider">Total Évalués</p>
-              <p className="text-2xl font-black text-white">{kpi?.total_etudiants ?? 0} <span className="text-xs font-normal text-cream-100/70">étudiants</span></p>
-            </div>
           </div>
         </div>
       </div>

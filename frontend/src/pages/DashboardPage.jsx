@@ -122,11 +122,17 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="space-y-3.5">
-          {/* Rangée 1 : 3 cartes (Résultats académiques donut, Évolution de la réussite, Points clés détectés) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 items-stretch">
-            <RadialProgressCard kpi={kpi} />
-            <EvolutionReussiteCard data={evolution} />
-            <PointsClesCard points={pointsCles} />
+          {/* Rangée 1 : 3 cartes (Résultats académiques donut réduit, Évolution de la réussite élargi, Points clés détectés) */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-stretch">
+            <div className="md:col-span-5 lg:col-span-3 xl:col-span-3">
+              <RadialProgressCard kpi={kpi} />
+            </div>
+            <div className="md:col-span-7 lg:col-span-5 xl:col-span-6">
+              <EvolutionReussiteCard data={evolution} />
+            </div>
+            <div className="md:col-span-12 lg:col-span-4 xl:col-span-3">
+              <PointsClesCard points={pointsCles} />
+            </div>
           </div>
 
           {/* Rangée 2 : Distribution des notes et Devoir vs Examen */}
