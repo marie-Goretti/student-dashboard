@@ -30,13 +30,14 @@ def _apply_recommendation_filters(queryset, filters: dict):
         queryset = queryset.filter(id_mod__semestre__in=sem_variants)
     if filters.get('resultat'):
         queryset = queryset.filter(resultat=filters['resultat'])
+    if filters.get('id_etu'):
+        queryset = queryset.filter(id_etu=filters['id_etu'])
     return queryset
 
 
 def get_recommendations(filters: dict = None, user=None, config: RecommendationsConfig = None) -> dict:
     """
     Génère l'ensemble des recommandations pédagogiques à partir des filtres actifs.
-    Évalue les 9 règles métier sur les données académiques réelles.
     """
     filters = filters or {}
     base_qs = FactEvaluation.objects.all()
@@ -44,7 +45,7 @@ def get_recommendations(filters: dict = None, user=None, config: Recommendations
     # Queryset filtré principal
     filtered_qs = _apply_recommendation_filters(base_qs, filters)
 
-    # Queryset sans le filtre de semestre pour permettre les comparaisons inter-semestres (Règles 3, 6, 7)
+    # Queryset sans le filtre de semestre pour permettre les comparaisons inter-semestres (Règle 9, 11)
     cohort_filters = {k: v for k, v in filters.items() if k != 'semestre'}
     full_cohort_qs = _apply_recommendation_filters(base_qs, cohort_filters)
 
@@ -78,14 +79,21 @@ def get_points_cles(filters: dict = None, config: RecommendationsConfig = None) 
 
     points = []
     for idx, r in enumerate(recs[:3]):
-        badge_type = 'alert' if r['priority'] == 'elevee' else ('warning' if r['priority'] == 'moyenne' else ('positive' if r['is_positive'] else 'neutral'))
+        prio = r.get('priority', '')
+        is_alert = prio == 'elevee'
+        is_warning = prio == 'moyenne'
+        is_positive = r.get('is_positive', False)
+
+        badge_type = 'alert' if is_alert else ('warning' if is_warning else ('positive' if is_positive else 'neutral'))
+        action = 'prioritaire' if is_alert else ('vigilance' if is_warning else 'suivi')
+
         points.append({
             'id': f"0{idx + 1}",
-            'titre': r['short_title'],
-            'description': r['description'],
+            'titre': r.get('short_title', r.get('title', '')),
+            'description': r.get('description', ''),
             'badgeType': badge_type,
-            'isAlert': r['priority'] == 'elevee',
-            'action': 'prioritaire' if r['priority'] == 'elevee' else ('vigilance' if r['priority'] == 'moyenne' else 'suivi'),
+            'isAlert': is_alert,
+            'action': action,
             'indicator': r.get('indicator_label'),
             'rule_number': r.get('rule_number'),
         })

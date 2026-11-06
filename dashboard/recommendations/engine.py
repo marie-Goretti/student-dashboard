@@ -1,22 +1,20 @@
 """
-Moteur d'analyse et de génération de recommandations pédagogiques automatiques.
-Applique rigoureusement les 12 règles métier académiques :
-1. Écart entre devoirs et examens
-2. Taux d'échec à la moyenne finale
-3. Taux d'échec aux examens
-4. Faibles performances au contrôle continu
-5. Proportion de zéros aux devoirs
-6. Étudiants ayant plusieurs matières non validées
-7. Étudiants proches du seuil de validation
-8. Échec persistant après rattrapage
-9. Progression ou dégradation entre semestres
-10. Forte dispersion des notes
-11. Amélioration significative
-12. Faible taux de réussite après rattrapage
+Moteur d'analyse et de génération de recommandations pédagogiques automatiques LBS.
+Applique rigoureusement les 10 règles métier spécifiées :
+1. Écart entre devoirs et examens (>= 2 pts / >= 4 pts)
+2. Échec à la moyenne finale du module (>= 60% / >= 70%)
+3. Échec aux examens (>= 60% / >= 70%)
+4. Faible contrôle continu (>= 50% / >= 65%)
+5. Zéros aux devoirs (>= 15% / >= 25%)
+6. Étudiants avec plusieurs matières non validées (>= 5 / >= 7, alerte dès 3)
+7. Étudiants proches de la validation (8 à < 10 / 9 à < 10)
+9. Évolution entre semestres (>= 1 pt / >= 2 pts)
+11. Amélioration significative (+1 pt ou +10% / +2 pts ou +20%)
+12. Faible réussite après rattrapage (< 50% / < 30%)
 """
 import math
 from datetime import datetime
-from collections import defaultdict, Counter
+from collections import defaultdict
 from academics.models import ResultatChoices
 from .config import RecommendationsConfig, DEFAULT_CONFIG
 
@@ -28,13 +26,16 @@ def _clamp(val: float, min_val: float = 0.0, max_val: float = 20.0) -> float:
 def _extract_notes_on_20(ev) -> tuple[float | None, float | None, float | None]:
     """
     Extrait (note_devoir, note_examen, moyenne) ramenées sur 20.
-    Prend en compte les notes brutes et pondérées (40% / 60%).
     """
     devoir = None
     if ev.note_devoir_40 is not None:
         devoir = float(ev.note_devoir_40) / 0.4
     elif ev.note_devoir1 is not None:
-        devoir = float(ev.note_devoir1)
+        devoirs = [
+            float(d) for d in [ev.note_devoir1, ev.note_devoir2, ev.note_devoir3, ev.note_devoir4]
+            if d is not None
+        ]
+        devoir = sum(devoirs) / len(devoirs) if devoirs else None
     if devoir is not None:
         devoir = _clamp(devoir)
 
@@ -60,11 +61,11 @@ def _extract_notes_on_20(ev) -> tuple[float | None, float | None, float | None]:
 
 
 def _is_failed_evaluation(ev, moy_val: float | None, seuil_validation: float = 10.0) -> bool:
-    """Détermine si une évaluation est un échec selon la règle officielle."""
-    if ev.resultat == ResultatChoices.NON_EVALUE:
-        return False
+    """Détermine si une évaluation est un échec."""
     if ev.resultat == ResultatChoices.AJOURNE:
         return True
+    if ev.resultat == ResultatChoices.ADMIS:
+        return False
     if moy_val is not None:
         return moy_val < seuil_validation
     return False
@@ -72,27 +73,17 @@ def _is_failed_evaluation(ev, moy_val: float | None, seuil_validation: float = 1
 
 def _is_passed_evaluation(ev, moy_val: float | None, seuil_validation: float = 10.0) -> bool:
     """Détermine si une évaluation est validée (Admis)."""
-    if ev.resultat == ResultatChoices.NON_EVALUE:
-        return False
     if ev.resultat == ResultatChoices.ADMIS:
         return True
+    if ev.resultat == ResultatChoices.AJOURNE:
+        return False
     if moy_val is not None:
         return moy_val >= seuil_validation
     return False
 
 
-def _compute_std_dev(values: list[float]) -> float:
-    """Calcule l'écart-type d'une série de notes."""
-    n = len(values)
-    if n < 2:
-        return 0.0
-    mean_val = sum(values) / n
-    variance = sum((x - mean_val) ** 2 for x in values) / n
-    return math.sqrt(variance)
-
-
 class RecommendationsEngine:
-    """Moteur décisionnel exécutant les 12 règles métier."""
+    """Moteur décisionnel exécutant les règles métier LBS."""
 
     def __init__(self, config: RecommendationsConfig = None):
         self.config = config or DEFAULT_CONFIG
@@ -118,8 +109,8 @@ class RecommendationsEngine:
                     'total_evaluations': 0,
                     'total_etudiants': 0,
                     'total_recommandations': 0,
-                    'counts_by_priority': {'elevee': 0, 'moyenne': 0, 'faible': 0, 'positive': 0},
-                    'counts_by_rule': {f"r{i}": 0 for i in range(1, 13)},
+                    'counts_by_priority': {'elevee': 0, 'moyenne': 0, 'positive': 0},
+                    'counts_by_rule': {f"r{i}": 0 for i in [1, 2, 3, 4, 5, 6, 7, 9, 11, 12]},
                 },
                 'recommandations': [],
                 'info_message': "Aucune évaluation disponible pour les filtres sélectionnés.",
@@ -131,54 +122,48 @@ class RecommendationsEngine:
         # 1. Écart entre devoirs et examens
         recommendations.extend(self._eval_rule_1_devoir_examen_gap(evaluations, filters, now_iso))
 
-        # 2. Taux d'échec à la moyenne finale
+        # 2. Échec à la moyenne finale du module
         recommendations.extend(self._eval_rule_2_final_failure_rate(evaluations, filters, now_iso))
 
-        # 3. Taux d'échec aux examens
+        # 3. Échec aux examens
         recommendations.extend(self._eval_rule_3_exam_failure_rate(evaluations, filters, now_iso))
 
-        # 4. Faibles performances au contrôle continu
+        # 4. Faible contrôle continu
         recommendations.extend(self._eval_rule_4_devoir_failure_rate(evaluations, filters, now_iso))
 
-        # 5. Proportion de zéros aux devoirs
+        # 5. Zéros aux devoirs
         recommendations.extend(self._eval_rule_5_zero_devoir_rate(evaluations, filters, now_iso))
 
-        # 6. Étudiants ayant plusieurs matières non validées
+        # 6. Étudiants avec plusieurs matières non validées
         recommendations.extend(self._eval_rule_6_multiple_unvalidated(evaluations, filters, user_can_view_students, now_iso))
 
-        # 7. Étudiants proches du seuil de validation
+        # 7. Étudiants proches de la validation
         recommendations.extend(self._eval_rule_7_near_validation(evaluations, filters, user_can_view_students, now_iso))
 
-        # 8. Échec persistant après rattrapage
-        recommendations.extend(self._eval_rule_8_post_rattrapage_failure(evaluations, filters, now_iso))
-
-        # 9. Progression ou dégradation entre semestres
+        # 9. Évolution entre semestres
         recommendations.extend(self._eval_rule_9_semester_variation(comparative_qs, filters, now_iso))
 
-        # 10. Forte dispersion des notes
-        recommendations.extend(self._eval_rule_10_grade_dispersion(evaluations, filters, now_iso))
-
-        # 11. Amélioration significative (Succès / Résultat positif)
+        # 11. Amélioration significative (résultat positif)
         recommendations.extend(self._eval_rule_11_significant_improvement(comparative_qs, filters, now_iso))
 
-        # 12. Faible taux de réussite après rattrapage
+        # 12. Faible réussite après rattrapage
         recommendations.extend(self._eval_rule_12_low_rattrapage_pass_rate(evaluations, filters, now_iso))
 
         # Déduplication et conservation de la priorité la plus élevée par entité
         deduped = self._deduplicate_recommendations(recommendations)
 
-        priority_order = {'elevee': 0, 'moyenne': 1, 'faible': 2, 'positive': 3}
+        priority_order = {'elevee': 0, 'moyenne': 1, 'positive': 2}
         deduped.sort(key=lambda r: (priority_order.get(r['priority'], 99), r.get('rule_number', 0)))
 
-        counts_by_prio = {'elevee': 0, 'moyenne': 0, 'faible': 0, 'positive': 0}
-        counts_by_rule = {f"r{i}": 0 for i in range(1, 13)}
+        counts_by_prio = {'elevee': 0, 'moyenne': 0, 'positive': 0}
+        counts_by_rule = {f"r{i}": 0 for i in [1, 2, 3, 4, 5, 6, 7, 9, 11, 12]}
 
         for r in deduped:
-            p = r.get('priority', 'faible')
+            p = r.get('priority', 'moyenne')
             if p in counts_by_prio:
                 counts_by_prio[p] += 1
             r_num = r.get('rule_number')
-            if r_num and 1 <= r_num <= 12:
+            if r_num and f"r{r_num}" in counts_by_rule:
                 counts_by_rule[f"r{r_num}"] += 1
 
         info_msg = None
@@ -190,7 +175,7 @@ class RecommendationsEngine:
                     f"est requis pour émettre des recommandations statistiques fiables."
                 )
             else:
-                info_msg = "Aucune alerte académique détectée : les indicateurs analysés sont conformes aux objectifs."
+                info_msg = "Aucune alerte pédagogique détectée : les indicateurs analysés sont conformes aux attentes."
 
         return {
             'summary': {
@@ -206,7 +191,8 @@ class RecommendationsEngine:
 
     # -------------------------------------------------------------------------
     # RÈGLE 1 : Écart entre devoirs et examens
-    # Seuil d'alerte : Écart absolu >= 2 points | Seuil critique : >= 4 points
+    # Alerte : écart >= 2 points | Critique : >= 4 points
+    # Action : Harmoniser devoirs et examens (le texte exact dépend du sens de l'écart)
     # -------------------------------------------------------------------------
     def _eval_rule_1_devoir_examen_gap(self, evaluations, filters, now_iso) -> list:
         recs = []
@@ -243,45 +229,43 @@ class RecommendationsEngine:
 
                 is_critical = abs_diff >= self.config.RULE_1_DIFF_CRITICAL
                 priority = 'elevee' if is_critical else 'moyenne'
-                prio_label = "Priorité critique" if is_critical else "Priorité moyenne"
+                prio_label = "Priorité critique" if is_critical else "Point de vigilance"
                 threshold_str = f"Écart absolu ≥ {self.config.RULE_1_DIFF_CRITICAL} pts" if is_critical else f"Écart absolu ≥ {self.config.RULE_1_DIFF_ALERT} pts"
 
                 if diff_raw > 0:
-                    direction = "devoir_superieur"
                     direction_label = "Devoir > Examen"
                     desc = (
-                        f"Un écart significatif de {abs_diff} point(s) est constaté entre la moyenne des devoirs ({avg_devoir}/20) "
-                        f"et celle des examens ({avg_exam}/20) en {mod_name}. Les étudiants chutent lors de l'examen individuel sur table."
+                        f"Un écart de {abs_diff} point(s) est constaté entre la moyenne des devoirs ({avg_devoir}/20) "
+                        f"et celle des examens ({avg_exam}/20) en {mod_name}. Les étudiants chutent lors de l'examen individuel."
                     )
                     action_rec = (
-                        f"Analyser le niveau de difficulté de l'examen final de {mod_name} et entraîner les étudiants aux conditions d'examen individuel."
+                        f"Harmoniser devoirs et examens : analyser le niveau de difficulté de l'examen final et entraîner les étudiants aux conditions de l'examen individuel."
                     )
                     actions_list = [
+                        "Harmoniser devoirs et examens (barème et exigences)",
                         f"Vérifier le barème et la durée de l'examen terminal en {mod_name}",
                         "Organiser un examen blanc chronométré pour habituer les étudiants à la gestion du temps",
-                        "Sensibiliser sur la part d'autonomie individuelle requise en examen",
                     ]
                 else:
-                    direction = "examen_superieur"
                     direction_label = "Examen > Devoir"
                     desc = (
-                        f"La moyenne des examens ({avg_exam}/20) dépasse nettement celle des devoirs ({avg_devoir}/20) "
+                        f"La moyenne des examens ({avg_exam}/20) dépasse celle des devoirs ({avg_devoir}/20) "
                         f"de {abs_diff} point(s) en {mod_name}. Le contrôle continu est sous-investi par rapport à l'examen."
                     )
                     action_rec = (
-                        f"Examiner les modalités d'évaluation du contrôle continu en {mod_name} et encourager une implication régulière."
+                        f"Harmoniser devoirs et examens : examiner les modalités d'évaluation du contrôle continu et encourager une implication régulière."
                     )
                     actions_list = [
-                        f"Vérifier le taux de remise des devoirs et les retards sur {mod_name}",
+                        "Harmoniser devoirs et examens (rythme et barème)",
+                        f"Vérifier le taux de remise des devoirs sur {mod_name}",
                         "Clarifier le barème et les consignes des travaux de contrôle continu",
-                        "Rappeler aux étudiants le coefficient déterminant du contrôle continu (40%)",
                     ]
 
                 recs.append({
                     'id': f"rec-r1-mod-{mod_id}",
                     'rule_number': 1,
                     'rule_name': "Écart entre devoirs et examens",
-                    'category': 'devoir_examen',
+                    'category': 'matiere',
                     'title': f"Écart Devoir/Examen marqué en {mod_name} ({direction_label})",
                     'short_title': f"Écart Devoir/Exam : {mod_name} (Δ {abs_diff} pts)",
                     'description': desc,
@@ -303,7 +287,6 @@ class RecommendationsEngine:
                         'moyenne_devoir': avg_devoir,
                         'moyenne_examen': avg_exam,
                         'ecart_points': abs_diff,
-                        'sens': direction,
                     },
                     'created_at': now_iso,
                 })
@@ -311,8 +294,9 @@ class RecommendationsEngine:
         return recs
 
     # -------------------------------------------------------------------------
-    # RÈGLE 2 : Taux d'échec à la moyenne finale
-    # Seuil d'alerte : >= 30% d'étudiants sous 10/20 | Seuil critique : >= 50%
+    # RÈGLE 2 : Échec à la moyenne finale du module
+    # Alerte : >= 60% sous 10 | Critique : >= 70%
+    # Action : Séances de renforcement et soutien méthodologique
     # -------------------------------------------------------------------------
     def _eval_rule_2_final_failure_rate(self, evaluations, filters, now_iso) -> list:
         recs = []
@@ -348,22 +332,19 @@ class RecommendationsEngine:
 
                 is_critical = failure_rate >= self.config.RULE_2_FAILURE_CRITICAL
                 priority = 'elevee' if is_critical else 'moyenne'
-                prio_label = "Priorité critique" if is_critical else "Priorité moyenne"
-                threshold_str = f"Taux d'échec ≥ {self.config.RULE_2_FAILURE_CRITICAL}%" if is_critical else f"Taux d'échec ≥ {self.config.RULE_2_FAILURE_ALERT}%"
-
-                moyennes = [m for _, m in valid_evals if m is not None]
-                avg_mod = round(sum(moyennes) / len(moyennes), 2) if moyennes else None
+                prio_label = "Priorité critique" if is_critical else "Point de vigilance"
+                threshold_str = f"Échec ≥ {self.config.RULE_2_FAILURE_CRITICAL}%" if is_critical else f"Échec ≥ {self.config.RULE_2_FAILURE_ALERT}%"
 
                 recs.append({
                     'id': f"rec-r2-mod-{mod_id}",
                     'rule_number': 2,
-                    'rule_name': "Taux d'échec à la moyenne finale",
+                    'rule_name': "Échec à la moyenne finale du module",
                     'category': 'matiere',
-                    'title': f"Taux d'échec élevé à la moyenne finale en {mod_name}",
+                    'title': f"Taux d'échec élevé à la moyenne finale en {mod_name} ({failure_rate}%)",
                     'short_title': f"Échec moyenne finale : {mod_name} ({failure_rate}%)",
                     'description': (
                         f"{failure_rate}% des étudiants ont une moyenne finale sous 10/20 en {mod_name} "
-                        f"({failure_count} sur {total_count} étudiants évalués). Moyenne observée : {avg_mod if avg_mod is not None else 'N/A'}/20."
+                        f"({failure_count} sur {total_count} étudiants évalués)."
                     ),
                     'indicator_value': failure_rate,
                     'indicator_label': f"{failure_rate}% d'échec final",
@@ -372,11 +353,11 @@ class RecommendationsEngine:
                     'priority_label': prio_label,
                     'badge_color': 'red' if is_critical else 'amber',
                     'is_positive': False,
-                    'action_recommandee': f"Mettre en place des séances de renforcement ciblées et un soutien méthodologique en {mod_name}.",
+                    'action_recommandee': "Séances de renforcement et soutien méthodologique.",
                     'actions': [
-                        f"Identifier les chapitres concentrant les plus grandes difficultés en {mod_name}",
-                        "Proposer des plages de soutien dirigé avant les évaluations finales",
-                        "Préparer un plan d'entraînement spécifique pour la session de rattrapage",
+                        "Séances de renforcement et soutien méthodologique",
+                        f"Identifier les notions concentrant les difficultés en {mod_name}",
+                        "Organiser des séances de tutorat pédagogique ciblé",
                     ],
                     'annee_academique': annee_str,
                     'semestre': sem,
@@ -387,7 +368,6 @@ class RecommendationsEngine:
                         'evaluations_total': total_count,
                         'evaluations_echec': failure_count,
                         'taux_echec': failure_rate,
-                        'moyenne_matiere': avg_mod,
                     },
                     'created_at': now_iso,
                 })
@@ -395,8 +375,9 @@ class RecommendationsEngine:
         return recs
 
     # -------------------------------------------------------------------------
-    # RÈGLE 3 : Taux d'échec aux examens
-    # Seuil d'alerte : >= 30% d'étudiants sous 10/20 | Seuil critique : >= 50%
+    # RÈGLE 3 : Échec aux examens
+    # Alerte : >= 60% sous 10 | Critique : >= 70%
+    # Action : Annales corrigées et ateliers d’entraînement
     # -------------------------------------------------------------------------
     def _eval_rule_3_exam_failure_rate(self, evaluations, filters, now_iso) -> list:
         recs = []
@@ -428,7 +409,7 @@ class RecommendationsEngine:
 
                 is_critical = fail_rate >= self.config.RULE_3_EXAM_FAILURE_CRITICAL
                 priority = 'elevee' if is_critical else 'moyenne'
-                prio_label = "Priorité critique" if is_critical else "Priorité moyenne"
+                prio_label = "Priorité critique" if is_critical else "Point de vigilance"
                 threshold_str = f"Échec examen ≥ {self.config.RULE_3_EXAM_FAILURE_CRITICAL}%" if is_critical else f"Échec examen ≥ {self.config.RULE_3_EXAM_FAILURE_ALERT}%"
 
                 avg_exam = round(sum(ex for _, ex in exam_evals) / total_exam, 2)
@@ -436,9 +417,9 @@ class RecommendationsEngine:
                 recs.append({
                     'id': f"rec-r3-mod-{mod_id}",
                     'rule_number': 3,
-                    'rule_name': "Taux d'échec aux examens",
+                    'rule_name': "Échec aux examens",
                     'category': 'matiere',
-                    'title': f"Taux d'échec élevé aux examens en {mod_name}",
+                    'title': f"Taux d'échec élevé aux examens en {mod_name} ({fail_rate}%)",
                     'short_title': f"Échec examen : {mod_name} ({fail_rate}%)",
                     'description': (
                         f"{fail_rate}% des étudiants ont obtenu moins de 10/20 à l'examen en {mod_name} "
@@ -451,11 +432,11 @@ class RecommendationsEngine:
                     'priority_label': prio_label,
                     'badge_color': 'red' if is_critical else 'amber',
                     'is_positive': False,
-                    'action_recommandee': f"Proposer des annales corrigées et des ateliers d'entraînement aux examens en {mod_name}.",
+                    'action_recommandee': "Annales corrigées et ateliers d’entraînement.",
                     'actions': [
-                        f"Organiser des séances de révision des annales d'examen pour {mod_name}",
-                        "Clarifier la méthodologie attendue lors de la rédaction des copies d'examen",
-                        "Vérifier l'alignement entre les objectifs pédagogiques et les sujets d'examen",
+                        "Annales corrigées et ateliers d’entraînement",
+                        "Mettre à disposition les annales corrigées et détaillées",
+                        "Animer des ateliers pratiques de résolution d'exercices types",
                     ],
                     'annee_academique': annee_str,
                     'semestre': sem,
@@ -463,7 +444,7 @@ class RecommendationsEngine:
                     'matiere': mod_name,
                     'etudiants_count': total_exam,
                     'details': {
-                        'evaluations_examen': total_exam,
+                        'examens_total': total_exam,
                         'examens_echec': len(failed_exam),
                         'taux_echec_examen': fail_rate,
                         'moyenne_examen': avg_exam,
@@ -474,8 +455,9 @@ class RecommendationsEngine:
         return recs
 
     # -------------------------------------------------------------------------
-    # RÈGLE 4 : Faibles performances au contrôle continu
-    # Seuil d'alerte : >= 30% d'étudiants avec moyenne devoirs < 10/20 | Critique : >= 50%
+    # RÈGLE 4 : Faible contrôle continu
+    # Alerte : >= 50% sous 10 | Critique : >= 65%
+    # Action : Adapter le rythme et l’accompagnement des travaux continus
     # -------------------------------------------------------------------------
     def _eval_rule_4_devoir_failure_rate(self, evaluations, filters, now_iso) -> list:
         recs = []
@@ -507,34 +489,34 @@ class RecommendationsEngine:
 
                 is_critical = fail_rate >= self.config.RULE_4_DEVOIR_FAILURE_CRITICAL
                 priority = 'elevee' if is_critical else 'moyenne'
-                prio_label = "Priorité critique" if is_critical else "Priorité moyenne"
+                prio_label = "Priorité critique" if is_critical else "Point de vigilance"
                 threshold_str = f"Échec devoirs ≥ {self.config.RULE_4_DEVOIR_FAILURE_CRITICAL}%" if is_critical else f"Échec devoirs ≥ {self.config.RULE_4_DEVOIR_FAILURE_ALERT}%"
 
-                avg_devoir = round(sum(dev for _, dev in devoir_evals) / total_devoir, 2)
+                avg_devoir = round(sum(d for _, d in devoir_evals) / total_devoir, 2)
 
                 recs.append({
                     'id': f"rec-r4-mod-{mod_id}",
                     'rule_number': 4,
-                    'rule_name': "Faibles performances au contrôle continu",
+                    'rule_name': "Faible contrôle continu",
                     'category': 'matiere',
-                    'title': f"Faibles performances au contrôle continu en {mod_name}",
-                    'short_title': f"Échec devoirs : {mod_name} ({fail_rate}%)",
+                    'title': f"Faibles performances au contrôle continu en {mod_name} ({fail_rate}%)",
+                    'short_title': f"Faible CC : {mod_name} ({fail_rate}%)",
                     'description': (
                         f"{fail_rate}% des étudiants ont une moyenne de devoirs sous 10/20 en {mod_name} "
-                        f"({len(failed_devoir)} sur {total_devoir} étudiants, moyenne devoirs : {avg_devoir}/20)."
+                        f"({len(failed_devoir)} sur {total_devoir} étudiants, moyenne CC : {avg_devoir}/20)."
                     ),
                     'indicator_value': fail_rate,
-                    'indicator_label': f"{fail_rate}% devoirs < 10",
+                    'indicator_label': f"{fail_rate}% d'échec CC",
                     'threshold': threshold_str,
                     'priority': priority,
                     'priority_label': prio_label,
                     'badge_color': 'red' if is_critical else 'amber',
                     'is_positive': False,
-                    'action_recommandee': f"Adapter le rythme et l'accompagnement des travaux continus en {mod_name}.",
+                    'action_recommandee': "Adapter le rythme et l’accompagnement des travaux continus.",
                     'actions': [
-                        f"Vérifier la progressivité pédagogique des devoirs continus en {mod_name}",
-                        "Instaurer des plages de tutorat méthodologique pour les premiers travaux",
-                        "Encourager un feedback plus précoce pour corriger les erreurs avant les échéances",
+                        "Adapter le rythme et l’accompagnement des travaux continus",
+                        "Clarifier les consignes et les grilles d'évaluation des devoirs",
+                        "Proposer un retour formatif rapide dès les premières évaluations",
                     ],
                     'annee_academique': annee_str,
                     'semestre': sem,
@@ -542,7 +524,7 @@ class RecommendationsEngine:
                     'matiere': mod_name,
                     'etudiants_count': total_devoir,
                     'details': {
-                        'evaluations_devoir': total_devoir,
+                        'devoirs_total': total_devoir,
                         'devoirs_echec': len(failed_devoir),
                         'taux_echec_devoir': fail_rate,
                         'moyenne_devoir': avg_devoir,
@@ -553,8 +535,9 @@ class RecommendationsEngine:
         return recs
 
     # -------------------------------------------------------------------------
-    # RÈGLE 5 : Proportion de zéros aux devoirs
-    # Seuil d'alerte : >= 15% de notes égales à 0 | Seuil critique : >= 25%
+    # RÈGLE 5 : Zéros aux devoirs
+    # Alerte : >= 15% de zéros | Critique : >= 25%
+    # Action : Enquêter sur les non-remises et instaurer des alertes de calendrier
     # -------------------------------------------------------------------------
     def _eval_rule_5_zero_devoir_rate(self, evaluations, filters, now_iso) -> list:
         recs = []
@@ -574,7 +557,7 @@ class RecommendationsEngine:
             if total_devoir < self.config.MIN_STUDENTS_SAMPLE:
                 continue
 
-            zeros_count = sum(1 for _, dev in devoir_evals if dev == 0.0)
+            zeros_count = sum(1 for _, d in devoir_evals if d == 0.0)
             zero_rate = round((zeros_count / total_devoir) * 100.0, 1)
 
             if zero_rate >= self.config.RULE_5_ZERO_DEVOIR_ALERT:
@@ -586,19 +569,19 @@ class RecommendationsEngine:
 
                 is_critical = zero_rate >= self.config.RULE_5_ZERO_DEVOIR_CRITICAL
                 priority = 'elevee' if is_critical else 'moyenne'
-                prio_label = "Priorité critique" if is_critical else "Priorité moyenne"
+                prio_label = "Priorité critique" if is_critical else "Point de vigilance"
                 threshold_str = f"Zéros devoirs ≥ {self.config.RULE_5_ZERO_DEVOIR_CRITICAL}%" if is_critical else f"Zéros devoirs ≥ {self.config.RULE_5_ZERO_DEVOIR_ALERT}%"
 
                 recs.append({
                     'id': f"rec-r5-mod-{mod_id}",
                     'rule_number': 5,
-                    'rule_name': "Proportion de zéros aux devoirs",
+                    'rule_name': "Zéros aux devoirs",
                     'category': 'matiere',
-                    'title': f"Proportion anormale de zéros aux devoirs en {mod_name}",
+                    'title': f"Proportion anormale de zéros aux devoirs en {mod_name} ({zero_rate}%)",
                     'short_title': f"Zéros devoirs : {mod_name} ({zero_rate}%)",
                     'description': (
                         f"{zero_rate}% de notes égales à 0 détectées en contrôle continu sur {mod_name} "
-                        f"({zeros_count} sur {total_devoir} étudiants). Ce signal traduit un taux élevé de non-remise de travaux ou d'abandon."
+                        f"({zeros_count} sur {total_devoir} étudiants). Ce signal traduit un taux élevé de non-remise de travaux."
                     ),
                     'indicator_value': zero_rate,
                     'indicator_label': f"{zero_rate}% de zéros",
@@ -607,11 +590,11 @@ class RecommendationsEngine:
                     'priority_label': prio_label,
                     'badge_color': 'red' if is_critical else 'amber',
                     'is_positive': False,
-                    'action_recommandee': f"Enquêter sur les non-remises de devoirs en {mod_name} et instaurer des alertes de calendrier.",
+                    'action_recommandee': "Enquêter sur les non-remises et instaurer des alertes de calendrier.",
                     'actions': [
-                        f"Identifier les étudiants ayant obtenu 0 en devoirs sur {mod_name} pour vérifier les motifs de non-remise",
-                        "Mettre en place un rappel automatique des échéances de dépôt de devoirs",
-                        "Définir une procédure de rattrapage des devoirs non rendus sous justificatif",
+                        "Enquêter sur les non-remises et instaurer des alertes de calendrier",
+                        "Identifier les motifs de non-remise auprès des étudiants",
+                        "Mettre en place des rappels automatisés avant chaque date limite",
                     ],
                     'annee_academique': annee_str,
                     'semestre': sem,
@@ -629,8 +612,9 @@ class RecommendationsEngine:
         return recs
 
     # -------------------------------------------------------------------------
-    # RÈGLE 6 : Étudiants ayant plusieurs matières non validées
-    # Seuil d'alerte : Au moins 3 matières non validées | Seuil critique : Au moins 5 matières
+    # RÈGLE 6 : Étudiants avec plusieurs matières non validées
+    # Alerte : >= 5 matières | Critique : >= 7 matières (surveillance à >= 3)
+    # Action : À 3 : calendrier de révision avant le rattrapage. À 5 : entretien immédiat et contrat de remédiation
     # -------------------------------------------------------------------------
     def _eval_rule_6_multiple_unvalidated(self, evaluations, filters, user_can_view_students, now_iso) -> list:
         recs = []
@@ -653,8 +637,9 @@ class RecommendationsEngine:
                 if not entry['annee'] and ev.id_annee:
                     entry['annee'] = ev.id_annee.annee_academique
 
-        critical_students = []  # >= 5 matières non validées
-        alert_students = []     # 3 ou 4 matières non validées
+        critical_students = []  # >= 7 matières non validées
+        alert_students = []     # 5 ou 6 matières non validées
+        warn_students = []      # 3 ou 4 matières non validées
 
         for etu_id, data in student_fails.items():
             count = len(data['failed_modules'])
@@ -662,8 +647,10 @@ class RecommendationsEngine:
                 critical_students.append(data)
             elif count >= self.config.RULE_6_UNVALIDATED_ALERT:
                 alert_students.append(data)
+            elif count >= self.config.RULE_6_UNVALIDATED_WARN:
+                warn_students.append(data)
 
-        def build_sample(stud_list, max_sample=10):
+        def build_sample(stud_list, max_sample=15):
             sample = []
             for s in stud_list[:max_sample]:
                 etu = s['etudiant']
@@ -683,31 +670,31 @@ class RecommendationsEngine:
                 })
             return sample
 
-        # Cas critique : >= 5 matières non validées
+        # Cas critique : >= 7 matières non validées
         if critical_students:
             recs.append({
                 'id': "rec-r6-critique",
                 'rule_number': 6,
-                'rule_name': "Étudiants ayant plusieurs matières non validées",
+                'rule_name': "Étudiants avec plusieurs matières non validées",
                 'category': 'etudiant',
-                'title': f"{len(critical_students)} étudiant(s) en échec critique (≥ 5 matières non validées)",
-                'short_title': f"Échec critique : {len(critical_students)} étudiant(s) (≥ 5 échecs)",
+                'title': f"{len(critical_students)} étudiant(s) en échec critique (≥ 7 matières non validées)",
+                'short_title': f"Échec critique : {len(critical_students)} étudiant(s) (≥ 7 échecs)",
                 'description': (
-                    f"{len(critical_students)} étudiant(s) cumulent au moins 5 matières non validées sur la période. "
-                    f"Risque majeur de décrochage nécessitant une convocation pédagogique urgente."
+                    f"{len(critical_students)} étudiant(s) cumulent 7 matières non validées ou plus. "
+                    f"Situation académique critique nécessitant un entretien d'orientation immédiat."
                 ),
                 'indicator_value': len(critical_students),
-                'indicator_label': f"{len(critical_students)} étudiants (≥ 5 échecs)",
-                'threshold': f"Matières non validées ≥ {self.config.RULE_6_UNVALIDATED_CRITICAL}",
+                'indicator_label': f"{len(critical_students)} étudiants (≥ 7 échecs)",
+                'threshold': "Matières non validées ≥ 7",
                 'priority': 'elevee',
                 'priority_label': "Priorité critique",
                 'badge_color': 'red',
                 'is_positive': False,
-                'action_recommandee': "Convoquer immédiatement les étudiants en entretien pédagogique et établir un contrat de remédiation.",
+                'action_recommandee': "Entretien immédiat et contrat de remédiation : réorientation ou redoublement accompagné.",
                 'actions': [
-                    "Convoquer les étudiants pour un bilan individuel approfondi",
-                    "Prioriser les matières fondamentales et à fort coefficient pour les rattrapages",
-                    "Nommer un tuteur référent pour un suivi bi-hebdomadaire",
+                    "Entretien immédiat et contrat de remédiation",
+                    "Bilan individuel approfondi et évaluation du parcours",
+                    "Prioriser les matières fondamentales pour la session de rattrapage",
                 ],
                 'annee_academique': filters.get('annee'),
                 'semestre': filters.get('semestre'),
@@ -721,31 +708,31 @@ class RecommendationsEngine:
                 'created_at': now_iso,
             })
 
-        # Cas alerte : 3 ou 4 matières non validées
+        # Cas alerte : 5 ou 6 matières non validées (À 5 : entretien immédiat et contrat de remédiation)
         if alert_students:
             recs.append({
                 'id': "rec-r6-alerte",
                 'rule_number': 6,
-                'rule_name': "Étudiants ayant plusieurs matières non validées",
+                'rule_name': "Étudiants avec plusieurs matières non validées",
                 'category': 'etudiant',
-                'title': f"{len(alert_students)} étudiant(s) en vigilance académique (3 à 4 matières non validées)",
-                'short_title': f"Vigilance : {len(alert_students)} étudiant(s) (3-4 échecs)",
+                'title': f"{len(alert_students)} étudiant(s) à risque élevé (5 à 6 matières non validées)",
+                'short_title': f"Risque élevé : {len(alert_students)} étudiant(s) (5-6 échecs)",
                 'description': (
-                    f"{len(alert_students)} étudiant(s) cumulent 3 ou 4 matières non validées. "
-                    f"Un soutien ciblé permettra d'éviter le basculement vers un décrochage sévère."
+                    f"{len(alert_students)} étudiant(s) cumulent 5 ou 6 matières non validées. "
+                    f"Convocation urgente requise."
                 ),
                 'indicator_value': len(alert_students),
-                'indicator_label': f"{len(alert_students)} étudiants (3-4 échecs)",
-                'threshold': f"Matières non validées ≥ {self.config.RULE_6_UNVALIDATED_ALERT}",
-                'priority': 'moyenne',
-                'priority_label': "Priorité moyenne",
-                'badge_color': 'amber',
+                'indicator_label': f"{len(alert_students)} étudiants (5-6 échecs)",
+                'threshold': "Matières non validées ≥ 5",
+                'priority': 'elevee',
+                'priority_label': "Priorité élevée",
+                'badge_color': 'orange',
                 'is_positive': False,
-                'action_recommandee': "Proposer un calendrier de révision ciblé avant les examens de rattrapage.",
+                'action_recommandee': "Entretien immédiat et contrat de remédiation.",
                 'actions': [
-                    "Informer les étudiants des points exacts à rattraper par module",
-                    "Organiser des séances de tutorat par les pairs",
-                    "Fournir les annales corrigées des matières non validées",
+                    "Entretien immédiat et contrat de remédiation",
+                    "Signer un contrat d'engagement pédagogique",
+                    "Mettre en place un calendrier de révision avant le rattrapage",
                 ],
                 'annee_academique': filters.get('annee'),
                 'semestre': filters.get('semestre'),
@@ -759,114 +746,176 @@ class RecommendationsEngine:
                 'created_at': now_iso,
             })
 
+        # Cas surveillance : 3 à 4 matières non validées (À 3 : calendrier de révision avant le rattrapage)
+        if warn_students:
+            recs.append({
+                'id': "rec-r6-vigilance",
+                'rule_number': 6,
+                'rule_name': "Étudiants avec plusieurs matières non validées",
+                'category': 'etudiant',
+                'title': f"{len(warn_students)} étudiant(s) en vigilance académique (3 à 4 matières non validées)",
+                'short_title': f"Vigilance : {len(warn_students)} étudiant(s) (3-4 échecs)",
+                'description': (
+                    f"{len(warn_students)} étudiant(s) cumulent 3 ou 4 matières non validées. "
+                    f"Un soutien ciblé permettra d'anticiper la session de rattrapage."
+                ),
+                'indicator_value': len(warn_students),
+                'indicator_label': f"{len(warn_students)} étudiants (3-4 échecs)",
+                'threshold': "Matières non validées ≥ 3",
+                'priority': 'moyenne',
+                'priority_label': "Point de vigilance",
+                'badge_color': 'amber',
+                'is_positive': False,
+                'action_recommandee': "Calendrier de révision avant le rattrapage.",
+                'actions': [
+                    "Calendrier de révision avant le rattrapage",
+                    "Informer les étudiants des points exacts à rattraper par module",
+                    "Fournir les annales corrigées des matières non validées",
+                ],
+                'annee_academique': filters.get('annee'),
+                'semestre': filters.get('semestre'),
+                'niveau': filters.get('niveau'),
+                'matiere': None,
+                'etudiants_count': len(warn_students),
+                'etudiants_sample': build_sample(warn_students),
+                'details': {
+                    'etudiants_vigilance_count': len(warn_students),
+                },
+                'created_at': now_iso,
+            })
+
         return recs
 
     # -------------------------------------------------------------------------
-    # RÈGLE 7 : Étudiants proches du seuil de validation
-    # Seuil d'alerte : Moyenne finale dans [8, 10[ | Seuil critique : Moyenne finale dans [9, 10[
+    # RÈGLE 7 : Étudiants proches de la validation
+    # Alerte : moyenne de 8 à moins de 10 | Critique : moyenne de 9 à moins de 10
+    # Action : Plan de révision ciblé sur les points perdus ; atelier de remédiation pour combler 1 à 2 points
     # -------------------------------------------------------------------------
     def _eval_rule_7_near_validation(self, evaluations, filters, user_can_view_students, now_iso) -> list:
         recs = []
-
-        # Identifier les évaluations et étudiants se trouvant dans la zone charnière
-        near_critical = []  # [9.0, 10.0[ -> à moins d'un point ! (critique / priorité élevée)
-        near_alert = []     # [8.0, 9.0[  -> à moins de 2 points ! (alerte / priorité moyenne)
+        student_means = defaultdict(list)
 
         for ev in evaluations:
+            if not ev.id_etu_id:
+                continue
             _, _, moy = _extract_notes_on_20(ev)
-            if moy is not None and self.config.RULE_7_NEAR_PASS_MIN_ALERT <= moy < self.config.RULE_7_NEAR_PASS_MAX:
-                mod_name = ev.id_mod.nom_mod if ev.id_mod else "Module"
-                etu_nom = "Étudiant"
-                mat = ""
-                if user_can_view_students and ev.id_etu:
-                    etu_nom = f"{ev.id_etu.nom.upper()} {ev.id_etu.prenom.title()}".strip()
-                    mat = ev.id_etu.matricule
+            if moy is not None:
+                student_means[ev.id_etu_id].append((ev, moy))
 
-                entry = {
-                    'id_etu': ev.id_etu_id if ev.id_etu else None,
-                    'etudiant': etu_nom,
-                    'matricule': mat,
-                    'module': mod_name,
-                    'moyenne': moy,
-                    'points_manquants': round(10.0 - moy, 2),
-                }
+        students_9_to_10 = []  # Critique : 9 <= moy < 10
+        students_8_to_9 = []   # Alerte : 8 <= moy < 9
 
-                if moy >= self.config.RULE_7_NEAR_PASS_MIN_CRITICAL:
-                    near_critical.append(entry)
+        for etu_id, ev_tuples in student_means.items():
+            if not ev_tuples:
+                continue
+            notes = [m for _, m in ev_tuples]
+            avg = round(sum(notes) / len(notes), 2)
+            first_ev = ev_tuples[0][0]
+
+            data = {
+                'etudiant': first_ev.id_etu,
+                'moyenne_generale': avg,
+                'points_manquants': round(10.0 - avg, 2),
+                'evaluations': ev_tuples,
+            }
+
+            if self.config.RULE_7_NEAR_PASS_MIN_CRITICAL <= avg < self.config.RULE_7_NEAR_PASS_MAX:
+                students_9_to_10.append(data)
+            elif self.config.RULE_7_NEAR_PASS_MIN_ALERT <= avg < self.config.RULE_7_NEAR_PASS_MIN_CRITICAL:
+                students_8_to_9.append(data)
+
+        def build_sample(stud_list, max_sample=15):
+            sample = []
+            for s in stud_list[:max_sample]:
+                etu = s['etudiant']
+                if user_can_view_students and etu:
+                    nom_affiche = f"{etu.nom.upper()} {etu.prenom.title()}".strip()
+                    mat = etu.matricule
                 else:
-                    near_alert.append(entry)
+                    nom_affiche = "Étudiant (confidentiel)"
+                    mat = "MASQUÉ"
 
-        # Seuil critique : [9.0, 10.0[ -> Reconversion immédiate accessible
-        if near_critical:
+                sample.append({
+                    'id_etu': etu.id_etu if etu else None,
+                    'etudiant': nom_affiche,
+                    'matricule': mat,
+                    'moyenne': s['moyenne_generale'],
+                    'points_manquants': s['points_manquants'],
+                })
+            return sample
+
+        # Groupe critique (9.0 à < 10.0) : combler moins de 1 point
+        if students_9_to_10:
             recs.append({
-                'id': "rec-r7-proche-critique",
+                'id': "rec-r7-critique-9-10",
                 'rule_number': 7,
-                'rule_name': "Étudiants proches du seuil de validation",
-                'category': 'rattrapage',
-                'title': f"{len(near_critical)} cas à moins d'1 point de la validation (9.0 à 9.9/20)",
-                'short_title': f"Cible prioritaire rattrapage : {len(near_critical)} cas (≥ 9/20)",
+                'rule_name': "Étudiants proches de la validation",
+                'category': 'etudiant',
+                'title': f"{len(students_9_to_10)} étudiant(s) très proches de la validation (Moyenne 9.0 à 9.9/20)",
+                'short_title': f"Proches validation (9-10) : {len(students_9_to_10)} étudiant(s)",
                 'description': (
-                    f"{len(near_critical)} évaluation(s) se situent entre 9.0 et 9.9/20. "
-                    f"Ces étudiants sont très proches de la validation (moins d'un point manquant). La réussite au rattrapage ou au rachat est hautement accessible."
+                    f"{len(students_9_to_10)} étudiant(s) ont une moyenne générale comprise entre 9.0 et 9.9/20. "
+                    f"Il ne leur manque que moins de 1 point pour valider. Cible prioritaire d'intervention."
                 ),
-                'indicator_value': len(near_critical),
-                'indicator_label': f"{len(near_critical)} cas en [9, 10[",
-                'threshold': f"Moyenne finale ∈ [{self.config.RULE_7_NEAR_PASS_MIN_CRITICAL}, {self.config.RULE_7_NEAR_PASS_MAX}[",
+                'indicator_value': len(students_9_to_10),
+                'indicator_label': f"{len(students_9_to_10)} étudiants (9 à <10)",
+                'threshold': "Moyenne ∈ [9.0, 10.0[",
                 'priority': 'elevee',
-                'priority_label': "Priorité élevée / Reconversion",
+                'priority_label': "Priorité critique",
                 'badge_color': 'red',
                 'is_positive': False,
-                'action_recommandee': "Proposer un plan de révision ciblé sur les points perdus pour sécuriser l'admission au rattrapage.",
+                'action_recommandee': "Plan de révision ciblé sur les points perdus ; atelier de remédiation pour combler 1 à 2 points.",
                 'actions': [
-                    "Convoquer en priorité pour les séances de préparation aux rattrapages",
-                    "Cibler les révisions exclusivement sur les questions manquées à l'examen initial",
-                    "Maximiser le taux de conversion vers l'admission définitive",
+                    "Plan de révision ciblé sur les points perdus ; atelier de remédiation pour combler 1 à 2 points",
+                    "Cibler 1 ou 2 modules stratégiques à fort potentiel de points",
+                    "Organiser des séances de tutorat dirigé avant la session de rattrapage",
                 ],
                 'annee_academique': filters.get('annee'),
                 'semestre': filters.get('semestre'),
                 'niveau': filters.get('niveau'),
                 'matiere': None,
-                'etudiants_count': len(near_critical),
-                'etudiants_sample': near_critical[:10],
+                'etudiants_count': len(students_9_to_10),
+                'etudiants_sample': build_sample(students_9_to_10),
                 'details': {
-                    'nombre_cas_critiques': len(near_critical),
+                    'etudiants_count': len(students_9_to_10),
                 },
                 'created_at': now_iso,
             })
 
-        # Seuil alerte : [8.0, 9.0[ -> Zone de vigilance / rattrapage
-        if near_alert:
+        # Groupe alerte (8.0 à < 9.0) : combler 1 à 2 points
+        if students_8_to_9:
             recs.append({
-                'id': "rec-r7-proche-alerte",
+                'id': "rec-r7-alerte-8-9",
                 'rule_number': 7,
-                'rule_name': "Étudiants proches du seuil de validation",
-                'category': 'rattrapage',
-                'title': f"{len(near_alert)} cas proches de la validation (8.0 à 8.9/20)",
-                'short_title': f"Proches validation : {len(near_alert)} cas (8 à 8.9/20)",
+                'rule_name': "Étudiants proches de la validation",
+                'category': 'etudiant',
+                'title': f"{len(students_8_to_9)} étudiant(s) proches du seuil de validation (Moyenne 8.0 à 8.9/20)",
+                'short_title': f"Proches validation (8-9) : {len(students_8_to_9)} étudiant(s)",
                 'description': (
-                    f"{len(near_alert)} évaluation(s) se situent entre 8.0 et 8.9/20 (1 à 2 points manquants). "
-                    f"Un travail de renforcement ciblé avant le rattrapage leur permettra de franchir la barre des 10/20."
+                    f"{len(students_8_to_9)} étudiant(s) ont une moyenne générale comprise entre 8.0 et 8.9/20. "
+                    f"Il leur manque entre 1.0 et 2.0 points pour valider l'année."
                 ),
-                'indicator_value': len(near_alert),
-                'indicator_label': f"{len(near_alert)} cas en [8, 9[",
-                'threshold': f"Moyenne finale ∈ [{self.config.RULE_7_NEAR_PASS_MIN_ALERT}, {self.config.RULE_7_NEAR_PASS_MIN_CRITICAL}[",
+                'indicator_value': len(students_8_to_9),
+                'indicator_label': f"{len(students_8_to_9)} étudiants (8 à <9)",
+                'threshold': "Moyenne ∈ [8.0, 9.0[",
                 'priority': 'moyenne',
-                'priority_label': "Priorité moyenne",
+                'priority_label': "Point de vigilance",
                 'badge_color': 'amber',
                 'is_positive': False,
-                'action_recommandee': "Organiser des ateliers de remédiation ciblée pour combler l'écart de 1 à 2 points.",
+                'action_recommandee': "Plan de révision ciblé sur les points perdus ; atelier de remédiation pour combler 1 à 2 points.",
                 'actions': [
-                    "Fournir des exercices types corrigés sur les notions clés",
-                    "Mettre en place des binômes d'entraide avec des étudiants admis",
+                    "Plan de révision ciblé sur les points perdus ; atelier de remédiation pour combler 1 à 2 points",
+                    "Identifier les modules où la marge de progression est la plus forte",
+                    "Mettre à disposition les annales corrigées des modules à rattraper",
                 ],
                 'annee_academique': filters.get('annee'),
                 'semestre': filters.get('semestre'),
                 'niveau': filters.get('niveau'),
                 'matiere': None,
-                'etudiants_count': len(near_alert),
-                'etudiants_sample': near_alert[:10],
+                'etudiants_count': len(students_8_to_9),
+                'etudiants_sample': build_sample(students_8_to_9),
                 'details': {
-                    'nombre_cas_alerte': len(near_alert),
+                    'etudiants_count': len(students_8_to_9),
                 },
                 'created_at': now_iso,
             })
@@ -874,115 +923,30 @@ class RecommendationsEngine:
         return recs
 
     # -------------------------------------------------------------------------
-    # RÈGLE 8 : Échec persistant après rattrapage
-    # Seuil d'alerte : >= 30% restent sous 10/20 | Seuil critique : >= 50%
+    # RÈGLE 9 : Évolution entre semestres
+    # Alerte : variation >= 1 point | Critique : >= 2 points
+    # Action : Baisse : analyser la charge de travail au S2. Hausse : valoriser la progression
     # -------------------------------------------------------------------------
-    def _eval_rule_8_post_rattrapage_failure(self, evaluations, filters, now_iso) -> list:
+    def _eval_rule_9_semester_variation(self, comparative_qs, filters, now_iso) -> list:
         recs = []
-        mod_groups = defaultdict(list)
+        niv_evals = defaultdict(list)
+        for ev in comparative_qs:
+            if ev.id_niv_id and ev.id_mod and ev.id_mod.semestre:
+                niv_evals[ev.id_niv_id].append(ev)
 
-        for ev in evaluations:
-            # Évaluation ayant fait l'objet d'un rattrapage
-            if ev.note_rattrapage is not None or ev.moyenne_rattrapage is not None:
-                mod_groups[ev.id_mod_id].append(ev)
+        for niv_id, ev_list in niv_evals.items():
+            s1_notes = []
+            s2_notes = []
 
-        for mod_id, ev_list in mod_groups.items():
-            total_rat = len(ev_list)
-            if total_rat < self.config.MIN_RATTRAPAGE_SAMPLE:
-                continue
-
-            failed_after = []
             for ev in ev_list:
-                m_rat = float(ev.moyenne_rattrapage) if ev.moyenne_rattrapage is not None else (
-                    float(ev.note_rattrapage) if ev.note_rattrapage is not None else None
-                )
-                if ev.resultat_rattrapage == ResultatChoices.AJOURNE or (m_rat is not None and m_rat < self.config.SEUIL_VALIDATION):
-                    failed_after.append(ev)
-
-            fail_rate = round((len(failed_after) / total_rat) * 100.0, 1)
-
-            if fail_rate >= self.config.RULE_8_POST_RAT_FAIL_ALERT:
-                first_ev = ev_list[0]
-                mod_name = first_ev.id_mod.nom_mod if first_ev.id_mod else f"Module {mod_id}"
-                sem = first_ev.id_mod.semestre if first_ev.id_mod else filters.get('semestre')
-                niv_code = first_ev.id_niv.code_niv if first_ev.id_niv else filters.get('niveau')
-                annee_str = first_ev.id_annee.annee_academique if first_ev.id_annee else filters.get('annee')
-
-                is_critical = fail_rate >= self.config.RULE_8_POST_RAT_FAIL_CRITICAL
-                priority = 'elevee' if is_critical else 'moyenne'
-                prio_label = "Priorité critique" if is_critical else "Priorité moyenne"
-                threshold_str = f"Échec post-rattrapage ≥ {self.config.RULE_8_POST_RAT_FAIL_CRITICAL}%" if is_critical else f"Échec post-rattrapage ≥ {self.config.RULE_8_POST_RAT_FAIL_ALERT}%"
-
-                recs.append({
-                    'id': f"rec-r8-mod-{mod_id}",
-                    'rule_number': 8,
-                    'rule_name': "Échec persistant après rattrapage",
-                    'category': 'rattrapage',
-                    'title': f"Échec persistant après rattrapage en {mod_name}",
-                    'short_title': f"Échec post-rattrapage : {mod_name} ({fail_rate}%)",
-                    'description': (
-                        f"{fail_rate}% des étudiants ayant passé le rattrapage restent sous 10/20 en {mod_name} "
-                        f"({len(failed_after)} sur {total_rat} étudiants). La deuxième chance n'a pas suffi à combler les difficultés."
-                    ),
-                    'indicator_value': fail_rate,
-                    'indicator_label': f"{fail_rate}% d'échec persistant",
-                    'threshold': threshold_str,
-                    'priority': priority,
-                    'priority_label': prio_label,
-                    'badge_color': 'red' if is_critical else 'amber',
-                    'is_positive': False,
-                    'action_recommandee': f"Réévaluer les prérequis fondamentaux et renforcer le dispositif d'accompagnement pré-rattrapage en {mod_name}.",
-                    'actions': [
-                        f"Analyser les copies de rattrapage de {mod_name} pour identifier les blocages récurrents",
-                        "Mettre en place des stages intensifs de pré-rentrée ou de réorientation pédagogique",
-                        "Vérifier si le format de l'épreuve de rattrapage est adapté à la mesure des acquis",
-                    ],
-                    'annee_academique': annee_str,
-                    'semestre': sem,
-                    'niveau': niv_code,
-                    'matiere': mod_name,
-                    'etudiants_count': total_rat,
-                    'details': {
-                        'total_rattrapage': total_rat,
-                        'echecs_post_rattrapage': len(failed_after),
-                        'taux_echec_post_rattrapage': fail_rate,
-                    },
-                    'created_at': now_iso,
-                })
-
-        return recs
-
-    # -------------------------------------------------------------------------
-    # RÈGLE 9 : Progression ou dégradation entre semestres
-    # Seuil d'alerte : Variation d'au moins 1 pt | Seuil critique : Baisse ou hausse d'au moins 2 pts
-    # -------------------------------------------------------------------------
-    def _eval_rule_9_semester_variation(self, full_queryset, filters, now_iso) -> list:
-        recs = []
-        evals_all = list(full_queryset.select_related('id_etu', 'id_mod', 'id_niv', 'id_annee'))
-        cohorts = defaultdict(lambda: defaultdict(list))
-
-        for ev in evals_all:
-            if not ev.id_niv_id:
-                continue
-            sem_norm = None
-            if ev.id_mod and ev.id_mod.semestre:
-                s = str(ev.id_mod.semestre).strip().upper()
-                if '1' in s:
-                    sem_norm = 'S1'
-                elif '2' in s:
-                    sem_norm = 'S2'
-
-            if sem_norm:
+                sem = str(ev.id_mod.semestre).strip()
+                sem_clean = sem.upper().replace('SEMESTRE', '').replace('S', '').strip()
                 _, _, moy = _extract_notes_on_20(ev)
                 if moy is not None:
-                    cohorts[ev.id_niv_id][sem_norm].append(moy)
-
-        for niv_id, sem_dict in cohorts.items():
-            if 'S1' not in sem_dict or 'S2' not in sem_dict:
-                continue
-
-            s1_notes = sem_dict['S1']
-            s2_notes = sem_dict['S2']
+                    if sem_clean == '1':
+                        s1_notes.append(moy)
+                    elif sem_clean == '2':
+                        s2_notes.append(moy)
 
             if len(s1_notes) < self.config.MIN_STUDENTS_SAMPLE or len(s2_notes) < self.config.MIN_STUDENTS_SAMPLE:
                 continue
@@ -992,89 +956,74 @@ class RecommendationsEngine:
             diff = round(avg_s2 - avg_s1, 2)
             abs_diff = round(abs(diff), 2)
 
-            first_ev = next((ev for ev in evals_all if ev.id_niv_id == niv_id), None)
-            niv_code = first_ev.id_niv.code_niv if first_ev and first_ev.id_niv else f"Niveau {niv_id}"
-            annee_str = first_ev.id_annee.annee_academique if first_ev and first_ev.id_annee else filters.get('annee')
+            first_ev = ev_list[0]
+            niv_code = first_ev.id_niv.code_niv if first_ev.id_niv else f"Niveau {niv_id}"
+            annee_str = first_ev.id_annee.annee_academique if first_ev.id_annee else filters.get('annee')
 
-            # Dégradation entre semestres (diff <= -1.0)
-            if diff <= -self.config.RULE_9_VARIATION_ALERT:
+            if abs_diff >= self.config.RULE_9_VARIATION_ALERT:
                 is_critical = abs_diff >= self.config.RULE_9_VARIATION_CRITICAL
                 priority = 'elevee' if is_critical else 'moyenne'
-                prio_label = "Priorité critique" if is_critical else "Priorité moyenne"
-                threshold_str = f"Baisse ≥ {self.config.RULE_9_VARIATION_CRITICAL} pts" if is_critical else f"Baisse ≥ {self.config.RULE_9_VARIATION_ALERT} pt"
+                prio_label = "Priorité critique" if is_critical else "Point de vigilance"
+                threshold_str = f"Variation ≥ {self.config.RULE_9_VARIATION_CRITICAL} pts" if is_critical else f"Variation ≥ {self.config.RULE_9_VARIATION_ALERT} pt"
+
+                if diff < 0:
+                    title = f"Baisse de moyenne entre semestres en {niv_code} (-{abs_diff} pts)"
+                    short_title = f"Baisse S1→S2 : {niv_code} (-{abs_diff} pts)"
+                    desc = (
+                        f"La moyenne générale de la promotion {niv_code} a chuté de {abs_diff} point(s) "
+                        f"entre le S1 ({avg_s1}/20) et le S2 ({avg_s2}/20)."
+                    )
+                    action_rec = "Baisse : analyser la charge de travail au S2."
+                    actions_list = [
+                        "Baisse : analyser la charge de travail au S2",
+                        f"Vérifier le calendrier d'examens et le chevauchement des rendus en {niv_code}",
+                        "Organiser un débriefing pédagogique avec les délégués de promotion",
+                    ]
+                    badge_col = 'red' if is_critical else 'amber'
+                    is_pos = False
+                else:
+                    title = f"Progression marquée entre semestres en {niv_code} (+{abs_diff} pts)"
+                    short_title = f"Hausse S1→S2 : {niv_code} (+{abs_diff} pts)"
+                    desc = (
+                        f"La moyenne générale de {niv_code} a progressé de {abs_diff} point(s) "
+                        f"entre le S1 ({avg_s1}/20) et le S2 ({avg_s2}/20)."
+                    )
+                    action_rec = "Hausse : valoriser la progression."
+                    actions_list = [
+                        "Hausse : valoriser la progression",
+                        "Partager les méthodes de travail efficaces au sein de l'équipe",
+                    ]
+                    badge_col = 'emerald'
+                    is_pos = True
+                    priority = 'positive'
+                    prio_label = "Progression"
 
                 recs.append({
-                    'id': f"rec-r9-degrad-niv-{niv_id}",
+                    'id': f"rec-r9-niv-{niv_id}",
                     'rule_number': 9,
-                    'rule_name': "Progression ou dégradation entre semestres",
+                    'rule_name': "Évolution entre semestres",
                     'category': 'semestre',
-                    'title': f"Dégradation des performances en {niv_code} entre S1 et S2 (-{abs_diff} pts)",
-                    'short_title': f"Baisse S2/S1 : {niv_code} (-{abs_diff} pts)",
-                    'description': (
-                        f"La cohorte {niv_code} a enregistré une baisse de {abs_diff} point(s) entre le S1 ({avg_s1}/20) "
-                        f"et le S2 ({avg_s2}/20). Une analyse ciblée des modules du second semestre s'impose."
-                    ),
-                    'indicator_value': -abs_diff,
-                    'indicator_label': f"-{abs_diff} pts (S2 vs S1)",
+                    'title': title,
+                    'short_title': short_title,
+                    'description': desc,
+                    'indicator_value': diff,
+                    'indicator_label': f"Δ {diff:+} pts (S1→S2)",
                     'threshold': threshold_str,
                     'priority': priority,
                     'priority_label': prio_label,
-                    'badge_color': 'red' if is_critical else 'amber',
-                    'is_positive': False,
-                    'action_recommandee': f"Analyser la charge de travail et les matières critiques au S2 en {niv_code}.",
-                    'actions': [
-                        f"Identifier les modules du S2 ayant connu la plus forte dégradation en {niv_code}",
-                        "Recueillir les retours d'expérience des délégués étudiants sur le calendrier du second semestre",
-                        "Renforcer le tutorat sur les enseignements complexes du S2",
-                    ],
+                    'badge_color': badge_col,
+                    'is_positive': is_pos,
+                    'action_recommandee': action_rec,
+                    'actions': actions_list,
                     'annee_academique': annee_str,
-                    'semestre': 'S2',
+                    'semestre': None,
                     'niveau': niv_code,
                     'matiere': None,
-                    'etudiants_count': max(len(s1_notes), len(s2_notes)),
+                    'etudiants_count': len(set(ev.id_etu_id for ev in ev_list if ev.id_etu_id)),
                     'details': {
                         'moyenne_s1': avg_s1,
                         'moyenne_s2': avg_s2,
-                        'variation_points': -abs_diff,
-                    },
-                    'created_at': now_iso,
-                })
-
-            # Progression entre semestres (diff >= +1.0)
-            elif diff >= self.config.RULE_9_VARIATION_ALERT:
-                is_critical = abs_diff >= self.config.RULE_9_VARIATION_CRITICAL
-                recs.append({
-                    'id': f"rec-r9-prog-niv-{niv_id}",
-                    'rule_number': 9,
-                    'rule_name': "Progression ou dégradation entre semestres",
-                    'category': 'semestre',
-                    'title': f"Progression notable des performances en {niv_code} (+{abs_diff} pts)",
-                    'short_title': f"Hausse S2/S1 : {niv_code} (+{abs_diff} pts)",
-                    'description': (
-                        f"La cohorte {niv_code} a progressé de +{abs_diff} point(s) entre le S1 ({avg_s1}/20) "
-                        f"et le S2 ({avg_s2}/20). Résultat positif témoignant d'une belle dynamique."
-                    ),
-                    'indicator_value': abs_diff,
-                    'indicator_label': f"+{abs_diff} pts (S2 vs S1)",
-                    'threshold': f"Hausse ≥ +{self.config.RULE_9_VARIATION_CRITICAL} pts" if is_critical else f"Hausse ≥ +{self.config.RULE_9_VARIATION_ALERT} pt",
-                    'priority': 'positive',
-                    'priority_label': "Progression majeure" if is_critical else "Amélioration constatée",
-                    'badge_color': 'emerald',
-                    'is_positive': True,
-                    'action_recommandee': f"Valoriser la progression des étudiants de {niv_code} et pérenniser les méthodes de travail adoptées au S2.",
-                    'actions': [
-                        f"Féliciter les étudiants et enseignants de {niv_code} pour les progrès accomplis",
-                        "Capitaliser sur les démarches pédagogiques qui ont produit cette hausse",
-                    ],
-                    'annee_academique': annee_str,
-                    'semestre': 'S2',
-                    'niveau': niv_code,
-                    'matiere': None,
-                    'etudiants_count': max(len(s1_notes), len(s2_notes)),
-                    'details': {
-                        'moyenne_s1': avg_s1,
-                        'moyenne_s2': avg_s2,
-                        'variation_points': abs_diff,
+                        'variation': diff,
                     },
                     'created_at': now_iso,
                 })
@@ -1082,10 +1031,100 @@ class RecommendationsEngine:
         return recs
 
     # -------------------------------------------------------------------------
-    # RÈGLE 10 : Forte dispersion des notes
-    # Seuil d'alerte : Écart-type >= 4 points | Seuil critique : >= 5 points
+    # RÈGLE 11 : Amélioration significative (résultat positif)
+    # Alerte : moyenne +1 point OU réussite +10 points
+    # Majeure : moyenne +2 points OU réussite +20 points
+    # Action : Valoriser la progression et diffuser les bonnes pratiques
     # -------------------------------------------------------------------------
-    def _eval_rule_10_grade_dispersion(self, evaluations, filters, now_iso) -> list:
+    def _eval_rule_11_significant_improvement(self, comparative_qs, filters, now_iso) -> list:
+        recs = []
+        niv_evals = defaultdict(list)
+        for ev in comparative_qs:
+            if ev.id_niv_id and ev.id_mod and ev.id_mod.semestre:
+                niv_evals[ev.id_niv_id].append(ev)
+
+        for niv_id, ev_list in niv_evals.items():
+            s1_evals = []
+            s2_evals = []
+
+            for ev in ev_list:
+                sem = str(ev.id_mod.semestre).strip()
+                sem_clean = sem.upper().replace('SEMESTRE', '').replace('S', '').strip()
+                _, _, moy = _extract_notes_on_20(ev)
+                if moy is not None:
+                    if sem_clean == '1':
+                        s1_evals.append((ev, moy))
+                    elif sem_clean == '2':
+                        s2_evals.append((ev, moy))
+
+            if len(s1_evals) < self.config.MIN_STUDENTS_SAMPLE or len(s2_evals) < self.config.MIN_STUDENTS_SAMPLE:
+                continue
+
+            avg_s1 = round(sum(m for _, m in s1_evals) / len(s1_evals), 2)
+            avg_s2 = round(sum(m for _, m in s2_evals) / len(s2_evals), 2)
+            delta_avg = round(avg_s2 - avg_s1, 2)
+
+            pass_s1 = round((sum(1 for _, m in s1_evals if m >= 10.0) / len(s1_evals)) * 100.0, 1)
+            pass_s2 = round((sum(1 for _, m in s2_evals if m >= 10.0) / len(s2_evals)) * 100.0, 1)
+            delta_pass = round(pass_s2 - pass_s1, 1)
+
+            if delta_avg >= self.config.RULE_11_AVG_GAIN_ALERT or delta_pass >= self.config.RULE_11_PASS_GAIN_ALERT:
+                first_ev = ev_list[0]
+                niv_code = first_ev.id_niv.code_niv if first_ev.id_niv else f"Niveau {niv_id}"
+                annee_str = first_ev.id_annee.annee_academique if first_ev.id_annee else filters.get('annee')
+
+                is_major = (
+                    delta_avg >= self.config.RULE_11_AVG_GAIN_CRITICAL
+                    or delta_pass >= self.config.RULE_11_PASS_GAIN_CRITICAL
+                )
+                prio_label = "Progression majeure" if is_major else "Amélioration notable"
+
+                recs.append({
+                    'id': f"rec-r11-niv-{niv_id}",
+                    'rule_number': 11,
+                    'rule_name': "Amélioration significative (résultat positif)",
+                    'category': 'matiere',
+                    'title': f"Progression académique significative en {niv_code} (+{delta_avg} pts)",
+                    'short_title': f"Succès : {niv_code} (+{delta_avg} pts, +{delta_pass}% réussite)",
+                    'description': (
+                        f"La promotion {niv_code} progresse nettement entre semestres : moyenne en hausse de +{delta_avg} point(s) "
+                        f"({avg_s1}/20 au S1 → {avg_s2}/20 au S2) et taux de réussite en hausse de +{delta_pass} points de pourcentage."
+                    ),
+                    'indicator_value': delta_avg,
+                    'indicator_label': f"+{delta_avg} pts • +{delta_pass}% réussite",
+                    'threshold': "Moyenne +1 pt ou réussite +10 pts",
+                    'priority': 'positive',
+                    'priority_label': prio_label,
+                    'badge_color': 'emerald',
+                    'is_positive': True,
+                    'action_recommandee': "Valoriser la progression et diffuser les bonnes pratiques.",
+                    'actions': [
+                        "Valoriser la progression et diffuser les bonnes pratiques",
+                        "Identifier et documenter les facteurs clés de réussite",
+                        "Féliciter la promotion pour les efforts d'apprentissage fournis",
+                    ],
+                    'annee_academique': annee_str,
+                    'semestre': None,
+                    'niveau': niv_code,
+                    'matiere': None,
+                    'etudiants_count': len(set(ev.id_etu_id for ev in ev_list if ev.id_etu_id)),
+                    'details': {
+                        'moyenne_s1': avg_s1,
+                        'moyenne_s2': avg_s2,
+                        'gain_moyenne': delta_avg,
+                        'gain_taux_reussite': delta_pass,
+                    },
+                    'created_at': now_iso,
+                })
+
+        return recs
+
+    # -------------------------------------------------------------------------
+    # RÈGLE 12 : Faible réussite après rattrapage
+    # Alerte : < 50% de réussite | Critique : < 30%
+    # Action : Revoir l’organisation et la préparation aux rattrapages
+    # -------------------------------------------------------------------------
+    def _eval_rule_12_low_rattrapage_pass_rate(self, evaluations, filters, now_iso) -> list:
         recs = []
         mod_groups = defaultdict(list)
         for ev in evaluations:
@@ -1093,205 +1132,26 @@ class RecommendationsEngine:
                 mod_groups[ev.id_mod_id].append(ev)
 
         for mod_id, ev_list in mod_groups.items():
-            valid_notes = []
+            rattrapage_evals = []
             for ev in ev_list:
-                _, _, moy = _extract_notes_on_20(ev)
-                if moy is not None:
-                    valid_notes.append(moy)
+                if ev.note_rattrapage is not None:
+                    note_rat = float(ev.note_rattrapage)
+                    is_pass = False
+                    if ev.moyenne_rattrapage is not None:
+                        is_pass = float(ev.moyenne_rattrapage) >= self.config.SEUIL_VALIDATION
+                    elif ev.resultat_rattrapage == ResultatChoices.ADMIS:
+                        is_pass = True
+                    else:
+                        is_pass = (note_rat >= self.config.SEUIL_VALIDATION)
 
-            total_count = len(valid_notes)
-            if total_count < self.config.MIN_STUDENTS_SAMPLE:
-                continue
+                    rattrapage_evals.append((ev, note_rat, is_pass))
 
-            std_dev = round(_compute_std_dev(valid_notes), 2)
-
-            if std_dev >= self.config.RULE_10_DISPERSION_ALERT:
-                first_ev = ev_list[0]
-                mod_name = first_ev.id_mod.nom_mod if first_ev.id_mod else f"Module {mod_id}"
-                sem = first_ev.id_mod.semestre if first_ev.id_mod else filters.get('semestre')
-                niv_code = first_ev.id_niv.code_niv if first_ev.id_niv else filters.get('niveau')
-                annee_str = first_ev.id_annee.annee_academique if first_ev.id_annee else filters.get('annee')
-
-                is_critical = std_dev >= self.config.RULE_10_DISPERSION_CRITICAL
-                priority = 'elevee' if is_critical else 'moyenne'
-                prio_label = "Priorité critique" if is_critical else "Priorité moyenne"
-                threshold_str = f"Écart-type ≥ {self.config.RULE_10_DISPERSION_CRITICAL} pts" if is_critical else f"Écart-type ≥ {self.config.RULE_10_DISPERSION_ALERT} pts"
-
-                min_note = round(min(valid_notes), 1)
-                max_note = round(max(valid_notes), 1)
-                avg_note = round(sum(valid_notes) / total_count, 2)
-                nb_faibles = sum(1 for n in valid_notes if n < 8.0)
-                nb_excellents = sum(1 for n in valid_notes if n >= 14.0)
-
-                recs.append({
-                    'id': f"rec-r10-mod-{mod_id}",
-                    'rule_number': 10,
-                    'rule_name': "Forte dispersion des notes",
-                    'category': 'dispersion',
-                    'title': f"Forte dispersion des notes en {mod_name} (σ = {std_dev} pts)",
-                    'short_title': f"Dispersion : {mod_name} (σ = {std_dev})",
-                    'description': (
-                        f"Écart-type prononcé de {std_dev}/20 en {mod_name} (notes de {min_note} à {max_note}/20, moyenne : {avg_note}/20). "
-                        f"Forte disparité avec {nb_faibles} note(s) < 8/20 et {nb_excellents} note(s) ≥ 14/20."
-                    ),
-                    'indicator_value': std_dev,
-                    'indicator_label': f"Écart-type σ = {std_dev}",
-                    'threshold': threshold_str,
-                    'priority': priority,
-                    'priority_label': prio_label,
-                    'badge_color': 'red' if is_critical else 'amber',
-                    'is_positive': False,
-                    'action_recommandee': f"Proposer un accompagnement pédagogique différencié et mobiliser les étudiants avancés comme mentors.",
-                    'actions': [
-                        f"Adapter le format des travaux dirigés de {mod_name} avec des parcours de renforcement",
-                        "Mobiliser les étudiants en tête pour animer des groupes d'entraide",
-                        "Vérifier si un déficit de prérequis explique la scission des résultats",
-                    ],
-                    'annee_academique': annee_str,
-                    'semestre': sem,
-                    'niveau': niv_code,
-                    'matiere': mod_name,
-                    'etudiants_count': total_count,
-                    'details': {
-                        'ecart_type': std_dev,
-                        'note_min': min_note,
-                        'note_max': max_note,
-                        'moyenne': avg_note,
-                        'nb_inf_8': nb_faibles,
-                        'nb_sup_14': nb_excellents,
-                    },
-                    'created_at': now_iso,
-                })
-
-        return recs
-
-    # -------------------------------------------------------------------------
-    # RÈGLE 11 : Amélioration significative (Succès)
-    # Seuil d'alerte : Hausse moy >= 1 pt OU réussite >= 10 points %
-    # Seuil critique : Hausse moy >= 2 pts OU réussite >= 20 points %
-    # -------------------------------------------------------------------------
-    def _eval_rule_11_significant_improvement(self, full_queryset, filters, now_iso) -> list:
-        recs = []
-        evals_all = list(full_queryset.select_related('id_mod', 'id_niv', 'id_annee'))
-        mod_sem_data = defaultdict(lambda: {'S1': [], 'S2': [], 'module_obj': None})
-
-        for ev in evals_all:
-            if not ev.id_mod_id:
-                continue
-            sem_norm = None
-            if ev.id_mod and ev.id_mod.semestre:
-                s = str(ev.id_mod.semestre).strip().upper()
-                if '1' in s:
-                    sem_norm = 'S1'
-                elif '2' in s:
-                    sem_norm = 'S2'
-
-            if sem_norm:
-                _, _, moy = _extract_notes_on_20(ev)
-                if ev.resultat != ResultatChoices.NON_EVALUE or moy is not None:
-                    mod_key = ev.id_mod.nom_mod.strip().upper() if (ev.id_mod and ev.id_mod.nom_mod) else str(ev.id_mod_id)
-                    mod_sem_data[mod_key][sem_norm].append((ev, moy))
-                    if not mod_sem_data[mod_key]['module_obj']:
-                        mod_sem_data[mod_key]['module_obj'] = ev.id_mod
-
-        for mod_key, data in mod_sem_data.items():
-            s1_list = data['S1']
-            s2_list = data['S2']
-
-            if len(s1_list) < self.config.MIN_STUDENTS_SAMPLE or len(s2_list) < self.config.MIN_STUDENTS_SAMPLE:
-                continue
-
-            # 1. Gain de moyenne
-            s1_moys = [m for _, m in s1_list if m is not None]
-            s2_moys = [m for _, m in s2_list if m is not None]
-            avg_gain = round((sum(s2_moys) / len(s2_moys)) - (sum(s1_moys) / len(s1_moys)), 2) if s1_moys and s2_moys else 0.0
-
-            # 2. Gain de taux de réussite
-            s1_passed = sum(1 for ev, m in s1_list if _is_passed_evaluation(ev, m, self.config.SEUIL_VALIDATION))
-            s2_passed = sum(1 for ev, m in s2_list if _is_passed_evaluation(ev, m, self.config.SEUIL_VALIDATION))
-            s1_rate = round((s1_passed / len(s1_list)) * 100.0, 1)
-            s2_rate = round((s2_passed / len(s2_list)) * 100.0, 1)
-            pass_gain = round(s2_rate - s1_rate, 1)
-
-            is_critical = (avg_gain >= self.config.RULE_11_AVG_GAIN_CRITICAL) or (pass_gain >= self.config.RULE_11_PASS_GAIN_CRITICAL)
-            is_alert = (avg_gain >= self.config.RULE_11_AVG_GAIN_ALERT) or (pass_gain >= self.config.RULE_11_PASS_GAIN_ALERT)
-
-            if is_alert:
-                mod_obj = data['module_obj']
-                mod_name = mod_obj.nom_mod if mod_obj else mod_key
-                mod_id = mod_obj.id_mod if mod_obj else mod_key
-
-                gain_desc_parts = []
-                if avg_gain >= self.config.RULE_11_AVG_GAIN_ALERT:
-                    gain_desc_parts.append(f"+{avg_gain} pts de moyenne")
-                if pass_gain >= self.config.RULE_11_PASS_GAIN_ALERT:
-                    gain_desc_parts.append(f"+{pass_gain}% de réussite ({s1_rate}% au S1 → {s2_rate}% au S2)")
-
-                desc = f"Amélioration significative observée en {mod_name} : {', '.join(gain_desc_parts)}."
-                prio_label = "Progression majeure" if is_critical else "Amélioration significative"
-
-                recs.append({
-                    'id': f"rec-r11-mod-{mod_id}",
-                    'rule_number': 11,
-                    'rule_name': "Amélioration significative",
-                    'category': 'matiere',
-                    'title': f"Amélioration significative en {mod_name} ({', '.join(gain_desc_parts)})",
-                    'short_title': f"Succès : {mod_name} (+{pass_gain if pass_gain > 0 else avg_gain} pts)",
-                    'description': desc,
-                    'indicator_value': max(avg_gain, pass_gain),
-                    'indicator_label': f"+{pass_gain}% réussite" if pass_gain >= self.config.RULE_11_PASS_GAIN_ALERT else f"+{avg_gain} pts moy",
-                    'threshold': "Hausse ≥ +2 pts moy ou +20% réussite" if is_critical else "Hausse ≥ +1 pt moy ou +10% réussite",
-                    'priority': 'positive',
-                    'priority_label': prio_label,
-                    'badge_color': 'emerald',
-                    'is_positive': True,
-                    'action_recommandee': f"Valoriser la progression en {mod_name} et diffuser les bonnes pratiques associées.",
-                    'actions': [
-                        f"Partager les méthodes pédagogiques appliquées en {mod_name} avec les autres enseignants",
-                        "Féliciter la promotion pour cette dynamique d'apprentissage positive",
-                    ],
-                    'annee_academique': filters.get('annee'),
-                    'semestre': 'S2',
-                    'niveau': filters.get('niveau'),
-                    'matiere': mod_name,
-                    'etudiants_count': len(s2_list),
-                    'details': {
-                        'gain_moyenne': avg_gain,
-                        'gain_taux_reussite': pass_gain,
-                        'taux_reussite_s1': s1_rate,
-                        'taux_reussite_s2': s2_rate,
-                    },
-                    'created_at': now_iso,
-                })
-
-        return recs
-
-    # -------------------------------------------------------------------------
-    # RÈGLE 12 : Faible taux de réussite après rattrapage
-    # Seuil d'alerte : Moins de 50% de réussite | Seuil critique : Moins de 30%
-    # -------------------------------------------------------------------------
-    def _eval_rule_12_low_rattrapage_pass_rate(self, evaluations, filters, now_iso) -> list:
-        recs = []
-        mod_groups = defaultdict(list)
-
-        for ev in evaluations:
-            if ev.note_rattrapage is not None or ev.moyenne_rattrapage is not None:
-                mod_groups[ev.id_mod_id].append(ev)
-
-        for mod_id, ev_list in mod_groups.items():
-            total_rat = len(ev_list)
+            total_rat = len(rattrapage_evals)
             if total_rat < self.config.MIN_RATTRAPAGE_SAMPLE:
                 continue
 
-            admis_rat = []
-            for ev in ev_list:
-                m_rat = float(ev.moyenne_rattrapage) if ev.moyenne_rattrapage is not None else (
-                    float(ev.note_rattrapage) if ev.note_rattrapage is not None else None
-                )
-                if ev.resultat_rattrapage == ResultatChoices.ADMIS or (m_rat is not None and m_rat >= self.config.SEUIL_VALIDATION):
-                    admis_rat.append(ev)
-
-            pass_rate = round((len(admis_rat) / total_rat) * 100.0, 1)
+            passed_count = sum(1 for _, _, p in rattrapage_evals if p)
+            pass_rate = round((passed_count / total_rat) * 100.0, 1)
 
             if pass_rate < self.config.RULE_12_POST_RAT_PASS_ALERT:
                 first_ev = ev_list[0]
@@ -1302,19 +1162,19 @@ class RecommendationsEngine:
 
                 is_critical = pass_rate < self.config.RULE_12_POST_RAT_PASS_CRITICAL
                 priority = 'elevee' if is_critical else 'moyenne'
-                prio_label = "Priorité critique" if is_critical else "Priorité moyenne"
+                prio_label = "Priorité critique" if is_critical else "Point de vigilance"
                 threshold_str = f"Réussite rattrapage < {self.config.RULE_12_POST_RAT_PASS_CRITICAL}%" if is_critical else f"Réussite rattrapage < {self.config.RULE_12_POST_RAT_PASS_ALERT}%"
 
                 recs.append({
                     'id': f"rec-r12-mod-{mod_id}",
                     'rule_number': 12,
-                    'rule_name': "Faible taux de réussite après rattrapage",
-                    'category': 'rattrapage',
-                    'title': f"Faible taux de réussite après rattrapage en {mod_name} ({pass_rate}%)",
-                    'short_title': f"Faible réussite rattrapage : {mod_name} ({pass_rate}%)",
+                    'rule_name': "Faible réussite après rattrapage",
+                    'category': 'matiere',
+                    'title': f"Faible réussite après rattrapage en {mod_name} ({pass_rate}%)",
+                    'short_title': f"Échec rattrapage : {mod_name} ({pass_rate}%)",
                     'description': (
-                        f"Seulement {pass_rate}% de réussite après rattrapage en {mod_name} "
-                        f"({len(admis_rat)} admis sur {total_rat} étudiants évalués). Le dispositif de rattrapage ne convertit pas suffisamment d'ajournements."
+                        f"Seulement {pass_rate}% de réussite constatée après rattrapage en {mod_name} "
+                        f"({passed_count} admis sur {total_rat} étudiants évalués en 2e session)."
                     ),
                     'indicator_value': pass_rate,
                     'indicator_label': f"{pass_rate}% de réussite rattrapage",
@@ -1323,11 +1183,11 @@ class RecommendationsEngine:
                     'priority_label': prio_label,
                     'badge_color': 'red' if is_critical else 'amber',
                     'is_positive': False,
-                    'action_recommandee': f"Revoir l'organisation et la préparation pédagogique aux rattrapages pour {mod_name}.",
+                    'action_recommandee': "Revoir l’organisation et la préparation aux rattrapages.",
                     'actions': [
-                        f"Organiser des séances de tutorat obligatoire pour les étudiants convoqués au rattrapage de {mod_name}",
-                        "Vérifier la représentativité de l'examen de rattrapage par rapport au cours dispensé",
-                        "Prévoir des ateliers de remédiation ciblés en petits groupes",
+                        "Revoir l’organisation et la préparation aux rattrapages",
+                        "Prévoir des séances de révision intensive avant la session de rattrapage",
+                        "Vérifier l'alignement du sujet de rattrapage avec les objectifs du cours",
                     ],
                     'annee_academique': annee_str,
                     'semestre': sem,
@@ -1335,53 +1195,29 @@ class RecommendationsEngine:
                     'matiere': mod_name,
                     'etudiants_count': total_rat,
                     'details': {
-                        'total_rattrapage': total_rat,
-                        'admis_rattrapage': len(admis_rat),
-                        'taux_reussite_rattrapage': pass_rate,
+                        'etudiants_rattrapage': total_rat,
+                        'etudiants_admis': passed_count,
+                        'taux_reussite': pass_rate,
                     },
                     'created_at': now_iso,
                 })
 
         return recs
 
-    # -------------------------------------------------------------------------
-    # Déduplication et sélection de la priorité la plus élevée
-    # -------------------------------------------------------------------------
-    def _deduplicate_recommendations(self, recommendations: list) -> list:
-        priority_weights = {'elevee': 4, 'moyenne': 3, 'faible': 2, 'positive': 1}
+    def _deduplicate_recommendations(self, recs: list[dict]) -> list[dict]:
+        """Déduplique en conservant la priorité la plus haute."""
+        priority_weights = {'elevee': 2, 'moyenne': 1, 'positive': 3}
         seen = {}
-
-        for rec in recommendations:
+        for r in recs:
             key = (
-                rec.get('rule_number'),
-                rec.get('category'),
-                rec.get('matiere') or rec.get('niveau') or rec.get('id'),
-                rec.get('annee_academique'),
-                rec.get('semestre'),
+                r.get('rule_number'),
+                r.get('matiere') or r.get('niveau') or r.get('id'),
             )
-            existing = seen.get(key)
-            if existing is None:
-                seen[key] = rec
+            if key not in seen:
+                seen[key] = r
             else:
-                current_weight = priority_weights.get(rec.get('priority'), 0)
-                existing_weight = priority_weights.get(existing.get('priority'), 0)
+                existing_weight = priority_weights.get(seen[key]['priority'], 0)
+                current_weight = priority_weights.get(r['priority'], 0)
                 if current_weight > existing_weight:
-                    seen[key] = rec
-
-        result = list(seen.values())
-        for rec in result:
-            if 'recommandation_principale' not in rec:
-                rec['recommandation_principale'] = rec.get('action_recommandee', '')
-            if 'count' not in rec:
-                rec['count'] = rec.get('etudiants_count', 0)
-            if 'students_count' not in rec:
-                rec['students_count'] = rec.get('etudiants_count', 0)
-            if 'percentage' not in rec:
-                val = rec.get('indicator_value')
-                rec['percentage'] = float(val) if isinstance(val, (int, float)) and 0 <= val <= 100 else 0.0
-            if 'diagnostic' not in rec:
-                rec['diagnostic'] = rec.get('description', '')
-            if 'default_open' not in rec:
-                rec['default_open'] = (rec.get('priority') == 'elevee')
-
-        return result
+                    seen[key] = r
+        return list(seen.values())

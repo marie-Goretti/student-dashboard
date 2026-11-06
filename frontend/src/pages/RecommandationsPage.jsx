@@ -7,7 +7,6 @@ import { getRecommandations } from '../api/dashboardService';
 import {
   AlertCircle,
   AlertTriangle,
-  TrendingUp,
   Award,
   CheckCircle2,
   ChevronDown,
@@ -15,14 +14,7 @@ import {
   Filter,
   Users,
   Search,
-  BookOpen,
-  Info,
   Sparkles,
-  ArrowRight,
-  Sliders,
-  Scale,
-  GraduationCap,
-  Calendar,
 } from 'lucide-react';
 
 export default function RecommandationsPage() {
@@ -42,8 +34,8 @@ export default function RecommandationsPage() {
     }
   });
 
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'elevee' | 'moyenne' | 'faible' | 'positive'
-  const [activeCategory, setActiveCategory] = useState('all'); // 'all' | 'matiere' | 'niveau' | 'semestre' | 'dispersion' | 'devoir_examen' | 'etudiant'
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'elevee' | 'moyenne' | 'positive'
+  const [activeCategory, setActiveCategory] = useState('all'); // 'all' | 'matiere' | 'etudiant' | 'semestre'
   const [searchTerm, setSearchTerm] = useState('');
 
   const loadData = useCallback(async () => {
@@ -72,18 +64,6 @@ export default function RecommandationsPage() {
 
   const recommendations = useMemo(() => {
     return data?.recommandations || [];
-  }, [data]);
-
-  const summary = useMemo(() => {
-    return (
-      data?.summary || {
-        total_evaluations: 0,
-        total_etudiants: 0,
-        total_recommandations: 0,
-        counts_by_priority: { elevee: 0, moyenne: 0, faible: 0, positive: 0 },
-        counts_by_rule: {},
-      }
-    );
   }, [data]);
 
   const toggleCard = (id) => {
@@ -125,7 +105,8 @@ export default function RecommandationsPage() {
       // Filtre priorité
       if (activeTab !== 'all') {
         if (activeTab === 'positive' && !r.is_positive) return false;
-        if (activeTab !== 'positive' && (r.priority !== activeTab || r.is_positive)) return false;
+        if (activeTab === 'elevee' && (r.priority !== 'elevee' || r.is_positive)) return false;
+        if (activeTab === 'moyenne' && (r.priority !== 'moyenne' || r.is_positive)) return false;
       }
 
       // Filtre catégorie
@@ -162,20 +143,14 @@ export default function RecommandationsPage() {
       case 'elevee':
         return (
           <span className="text-[11px] font-semibold text-[#8B2323] bg-[#FBEBEC] border border-[#F8D7DA] px-2.5 py-0.5 rounded-full inline-block">
-            {rec.priority_label || 'Priorité élevée'}
+            {rec.priority_label || 'Priorité critique'}
           </span>
         );
       case 'moyenne':
-        return (
-          <span className="text-[11px] font-semibold text-[#9A6700] bg-[#FFF8E6] border border-[#FEEBC8] px-2.5 py-0.5 rounded-full inline-block">
-            {rec.priority_label || 'Priorité moyenne'}
-          </span>
-        );
-      case 'faible':
       default:
         return (
-          <span className="text-[11px] font-semibold text-[#1F4B78] bg-[#EEF4FB] border border-[#D0E1FD] px-2.5 py-0.5 rounded-full inline-block">
-            {rec.priority_label || 'Priorité faible'}
+          <span className="text-[11px] font-semibold text-[#9A6700] bg-[#FFF8E6] border border-[#FEEBC8] px-2.5 py-0.5 rounded-full inline-block">
+            {rec.priority_label || 'Point de vigilance'}
           </span>
         );
     }
@@ -197,16 +172,10 @@ export default function RecommandationsPage() {
           </div>
         );
       case 'moyenne':
+      default:
         return (
           <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
             <AlertTriangle size={18} />
-          </div>
-        );
-      case 'faible':
-      default:
-        return (
-          <div className="w-8 h-8 rounded-xl bg-navy-50 border border-navy-200 flex items-center justify-center text-navy-600 shrink-0">
-            <Info size={18} />
           </div>
         );
     }
@@ -228,68 +197,14 @@ export default function RecommandationsPage() {
         showSemestre={true}
       />
 
-      {/* 3. Bandeau supérieur avec statistiques clés */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        <div className="bg-white rounded-2xl border border-cream-200 p-4 shadow-xs">
-          <div className="text-[11px] font-bold text-ink/50 uppercase tracking-wider">
-            Total Recommandations
-          </div>
-          <div className="text-2xl font-bold text-ink mt-1 font-sans">
-            {summary.total_recommandations ?? recommendations.length}
-          </div>
-          <div className="text-[11px] text-ink/50 mt-0.5">
-            Sur {summary.total_evaluations?.toLocaleString('fr-FR')} évaluations
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-red-100 p-4 shadow-xs bg-gradient-to-br from-white to-red-50/30">
-          <div className="text-[11px] font-bold text-maroon-700 uppercase tracking-wider flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-maroon-500" />
-            Priorités Élevées
-          </div>
-          <div className="text-2xl font-bold text-maroon-700 mt-1 font-sans">
-            {summary.counts_by_priority?.elevee ?? 0}
-          </div>
-          <div className="text-[11px] text-maroon-600/70 mt-0.5">
-            Intervention urgente recommandée
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-amber-100 p-4 shadow-xs bg-gradient-to-br from-white to-amber-50/30">
-          <div className="text-[11px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            Points de Vigilance
-          </div>
-          <div className="text-2xl font-bold text-amber-800 mt-1 font-sans">
-            {summary.counts_by_priority?.moyenne ?? 0}
-          </div>
-          <div className="text-[11px] text-amber-700/70 mt-0.5">
-            Accompagnement pédagogique ciblé
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-emerald-100 p-4 shadow-xs bg-gradient-to-br from-white to-emerald-50/30">
-          <div className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles size={12} className="text-emerald-600" />
-            Succès & Progrès
-          </div>
-          <div className="text-2xl font-bold text-emerald-700 mt-1 font-sans">
-            {summary.counts_by_priority?.positive ?? recommendations.filter((r) => r.is_positive).length}
-          </div>
-          <div className="text-[11px] text-emerald-600/70 mt-0.5">
-            Dynamiques positives constatées
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Description méthodologique & actions globales */}
-      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+      {/* 3. Description méthodologique & actions globales (sans les cartes KPI) */}
+      <div className="flex items-center justify-between gap-4 mb-4 mt-2 flex-wrap">
         <div>
           <p className="text-xs md:text-sm text-ink/75 font-medium">
-            Diagnostic pédagogique calculé automatiquement selon les 12 règles métier officielles.
+            Recommandations pédagogiques et plans d'action générés automatiquement.
           </p>
           <p className="text-[11px] text-ink/45 mt-0.5">
-            Contrôle continu 40% • Examen 60% • Seuil de validation 10.0/20 • Échantillon minimum : 5 étudiants
+            Seuils d'alerte et critiques • Devoirs, examens, validation et suivi semestriel
           </p>
         </div>
 
@@ -310,7 +225,7 @@ export default function RecommandationsPage() {
         </div>
       </div>
 
-      {/* 5. Filtres par Priorité et Recherche */}
+      {/* 4. Filtres par Priorité et Recherche */}
       <div className="bg-white rounded-2xl border border-cream-200 p-3 mb-5 shadow-xs space-y-3">
         {/* Ligne 1 : Onglets Priorités */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -338,7 +253,7 @@ export default function RecommandationsPage() {
                   : 'bg-cream-100/60 text-ink/70 hover:bg-cream-100'
               }`}
             >
-              Élevée ({recommendations.filter((r) => r.priority === 'elevee' && !r.is_positive).length})
+              Priorités critiques & élevées ({recommendations.filter((r) => r.priority === 'elevee' && !r.is_positive).length})
             </button>
 
             <button
@@ -349,7 +264,7 @@ export default function RecommandationsPage() {
                   : 'bg-cream-100/60 text-ink/70 hover:bg-cream-100'
               }`}
             >
-              Moyenne ({recommendations.filter((r) => r.priority === 'moyenne' && !r.is_positive).length})
+              Points de vigilance ({recommendations.filter((r) => r.priority === 'moyenne' && !r.is_positive).length})
             </button>
 
             <button
@@ -360,7 +275,7 @@ export default function RecommandationsPage() {
                   : 'bg-cream-100/60 text-ink/70 hover:bg-cream-100'
               }`}
             >
-              Succès & Améliorations ({recommendations.filter((r) => r.is_positive).length})
+              Succès & Progrès ({recommendations.filter((r) => r.is_positive).length})
             </button>
           </div>
 
@@ -383,12 +298,8 @@ export default function RecommandationsPage() {
           {[
             { id: 'all', label: 'Toutes catégories' },
             { id: 'matiere', label: 'Matières & Modules' },
-            { id: 'rattrapage', label: 'Rattrapages & Validation' },
-            { id: 'niveau', label: 'Niveaux & Cohortes' },
-            { id: 'semestre', label: 'Évolution semestres' },
-            { id: 'devoir_examen', label: 'Devoirs vs Examens' },
-            { id: 'dispersion', label: 'Dispersion des notes' },
-            { id: 'etudiant', label: 'Étudiants en difficulté' },
+            { id: 'etudiant', label: 'Étudiants & Validation' },
+            { id: 'semestre', label: 'Évolution entre semestres' },
           ].map((cat) => (
             <button
               key={cat.id}
@@ -405,12 +316,12 @@ export default function RecommandationsPage() {
         </div>
       </div>
 
-      {/* 6. Liste des Cartes de Recommandations */}
+      {/* 5. Liste des Cartes de Recommandations */}
       {loading ? (
         <div className="flex items-center justify-center py-20 bg-white rounded-3xl border border-cream-200">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-3 border-navy-600 border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-ink/50">Calcul des 12 règles décisionnelles sur les données réelles...</p>
+            <p className="text-xs text-ink/50">Analyse pédagogique en cours...</p>
           </div>
         </div>
       ) : filteredRecommendations.length === 0 ? (
@@ -480,13 +391,9 @@ export default function RecommandationsPage() {
 
                     {/* Contenu titre & diagnostic */}
                     <div className="space-y-1.5 flex-1 min-w-0">
-                      {/* Ligne des badges d'identification */}
+                      {/* Ligne des badges d'identification (SANS BADGE DE RÈGLE) */}
                       <div className="flex items-center gap-2 flex-wrap">
                         {getPriorityBadge(rec)}
-
-                        <span className="text-[11px] font-bold text-ink/60 bg-cream-100 px-2.5 py-0.5 rounded-full">
-                          Règle {rec.rule_number}
-                        </span>
 
                         {rec.indicator_label && (
                           <span className="text-[11px] font-bold text-navy-700 bg-navy-50 px-2.5 py-0.5 rounded-full border border-navy-100">
@@ -508,7 +415,7 @@ export default function RecommandationsPage() {
                         )}
                         {rec.semestre && (
                           <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
-                            {rec.semestre}
+                            Semestre {rec.semestre}
                           </span>
                         )}
                       </div>
@@ -535,68 +442,6 @@ export default function RecommandationsPage() {
                 {/* Corps déplié : Actions suggérées & Détails analytiques */}
                 {isOpen && (
                   <div className="px-5 sm:px-6 pb-6 pt-1 border-t border-cream-100/80">
-                    {/* Widget Spécifique RÈGLE 9 : Comparaison Devoir vs Examen */}
-                    {rec.rule_number === 9 && rec.details && (
-                      <div className="mt-4 p-4 rounded-xl bg-cream-100/40 border border-cream-200">
-                        <div className="flex items-center justify-between gap-4 mb-2">
-                          <span className="text-xs font-bold text-ink flex items-center gap-1.5">
-                            <Scale size={15} className="text-navy-600" />
-                            Comparaison Devoir vs Examen (sur 20)
-                          </span>
-                          <span className="text-xs font-bold text-navy-700 bg-white border border-cream-200 px-2.5 py-0.5 rounded-full">
-                            Écart : {rec.details.ecart_points} points
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 text-center">
-                          <div className="bg-white p-3 rounded-lg border border-cream-200">
-                            <div className="text-[11px] text-ink/50 font-medium">Moyenne Contrôle Continu (40%)</div>
-                            <div className="text-lg font-bold text-ink mt-0.5">
-                              {rec.details.moyenne_devoir?.toFixed(1)}/20
-                            </div>
-                          </div>
-                          <div className="bg-white p-3 rounded-lg border border-cream-200">
-                            <div className="text-[11px] text-ink/50 font-medium">Moyenne Examen Final (60%)</div>
-                            <div className="text-lg font-bold text-ink mt-0.5">
-                              {rec.details.moyenne_examen?.toFixed(1)}/20
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Widget Spécifique RÈGLE 4 : Dispersion des notes */}
-                    {rec.rule_number === 4 && rec.details && (
-                      <div className="mt-4 p-4 rounded-xl bg-cream-100/40 border border-cream-200">
-                        <div className="flex items-center justify-between gap-4 mb-2">
-                          <span className="text-xs font-bold text-ink flex items-center gap-1.5">
-                            <Sliders size={15} className="text-navy-600" />
-                            Profil de dispersion des notes (sur 20)
-                          </span>
-                          <span className="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
-                            Écart-type : σ = {rec.details.ecart_type}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                          <div className="bg-white p-2 rounded-lg border border-cream-200">
-                            <div className="text-[10px] text-ink/50">Note min</div>
-                            <div className="font-bold text-ink mt-0.5">{rec.details.note_min}/20</div>
-                          </div>
-                          <div className="bg-white p-2 rounded-lg border border-cream-200">
-                            <div className="text-[10px] text-ink/50">Note max</div>
-                            <div className="font-bold text-ink mt-0.5">{rec.details.note_max}/20</div>
-                          </div>
-                          <div className="bg-white p-2 rounded-lg border border-cream-200">
-                            <div className="text-[10px] text-ink/50">&lt; 8/20</div>
-                            <div className="font-bold text-maroon-600 mt-0.5">{rec.details.nb_inf_8} étudiants</div>
-                          </div>
-                          <div className="bg-white p-2 rounded-lg border border-cream-200">
-                            <div className="text-[10px] text-ink/50">≥ 14/20</div>
-                            <div className="font-bold text-emerald-600 mt-0.5">{rec.details.nb_sup_14} étudiants</div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-4 items-stretch">
                       {/* Colonne gauche : Action recommandée & Checklist concrète */}
                       <div className="lg:col-span-7 flex flex-col justify-between">
@@ -606,18 +451,24 @@ export default function RecommandationsPage() {
                             className={`rounded-xl p-3.5 border mb-4 ${
                               rec.is_positive
                                 ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950'
+                                : rec.priority === 'elevee'
+                                ? 'bg-red-50/50 border-red-200 text-red-950'
                                 : 'bg-cream-100/60 border-cream-200 text-ink'
                             }`}
                           >
                             <span
                               className={`text-[11px] font-bold uppercase tracking-wider block mb-1 ${
-                                rec.is_positive ? 'text-emerald-700' : 'text-navy-600'
+                                rec.is_positive
+                                  ? 'text-emerald-700'
+                                  : rec.priority === 'elevee'
+                                  ? 'text-red-700'
+                                  : 'text-navy-600'
                               }`}
                             >
                               Action Recommandée :
                             </span>
                             <p className="text-xs md:text-sm font-semibold leading-relaxed">
-                              {rec.action_recommandee || rec.recommandation_principale}
+                              {rec.action_recommandee}
                             </p>
                           </div>
 
@@ -664,7 +515,7 @@ export default function RecommandationsPage() {
                       <div className="lg:col-span-5 flex flex-col justify-between">
                         <div className="bg-[#F8F6F1] rounded-2xl p-5 border border-cream-200/70 mb-4">
                           <div className="text-[11px] font-semibold text-ink/50 uppercase tracking-wider mb-2">
-                            Périmètre académique
+                            Périmètre d'application
                           </div>
                           <div className="space-y-1.5 text-xs text-ink/85">
                             {rec.matiere && (
@@ -751,17 +602,20 @@ export default function RecommandationsPage() {
                               <tr>
                                 <th className="text-left py-2.5 px-3">Étudiant</th>
                                 <th className="text-left py-2.5 px-3">Matricule</th>
-                                {rec.rule_number === 5 ? (
+                                {rec.rule_number === 6 ? (
                                   <>
                                     <th className="text-center py-2.5 px-2">Matières non validées</th>
                                     <th className="text-left py-2.5 px-3">Détail des matières</th>
                                   </>
+                                ) : rec.rule_number === 7 ? (
+                                  <>
+                                    <th className="text-center py-2.5 px-2">Moyenne actuelle</th>
+                                    <th className="text-center py-2.5 px-2">Points manquants</th>
+                                  </>
                                 ) : (
                                   <>
                                     <th className="text-left py-2.5 px-3">Module</th>
-                                    <th className="text-center py-2.5 px-2">Devoir</th>
-                                    <th className="text-center py-2.5 px-2">Examen</th>
-                                    <th className="text-center py-2.5 px-2">Moyenne</th>
+                                    <th className="text-center py-2.5 px-2">Note / Statut</th>
                                   </>
                                 )}
                               </tr>
@@ -795,7 +649,7 @@ export default function RecommandationsPage() {
                                       st.matricule
                                     )}
                                   </td>
-                                  {rec.rule_number === 5 ? (
+                                  {rec.rule_number === 6 ? (
                                     <>
                                       <td className="py-2.5 px-2 text-center font-bold text-maroon-600">
                                         {st.nb_non_valides}
@@ -804,12 +658,19 @@ export default function RecommandationsPage() {
                                         {st.matieres?.join(', ') || 'N/A'}
                                       </td>
                                     </>
+                                  ) : rec.rule_number === 7 ? (
+                                    <>
+                                      <td className="py-2.5 px-2 text-center font-bold text-amber-700">
+                                        {st.moyenne ? `${st.moyenne}/20` : '-'}
+                                      </td>
+                                      <td className="py-2.5 px-2 text-center font-bold text-maroon-600">
+                                        {st.points_manquants ? `-${st.points_manquants} pt(s)` : '-'}
+                                      </td>
+                                    </>
                                   ) : (
                                     <>
                                       <td className="py-2.5 px-3 text-ink/80">{st.module || rec.matiere}</td>
-                                      <td className="py-2.5 px-2 text-center text-ink">{st.note_devoir ?? '-'}</td>
-                                      <td className="py-2.5 px-2 text-center text-ink">{st.note_examen ?? '-'}</td>
-                                      <td className="py-2.5 px-2 text-center font-bold text-navy-700">
+                                      <td className="py-2.5 px-2 text-center font-semibold text-navy-700">
                                         {st.moyenne ?? '-'}
                                       </td>
                                     </>
