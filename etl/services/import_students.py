@@ -182,4 +182,10 @@ def import_students_file(file_obj, filename: str = None) -> dict:
                 'erreur': str(e),
             })
 
+    try:
+        from django.core.cache import cache
+        cache.clear()
+    except Exception:
+        pass
+
     return report

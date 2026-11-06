@@ -13,6 +13,8 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { analyzeFile, importAuto } from '../api/etlService';
+import { clearAcademicsCache } from '../api/academicsService';
+import { clearStudentsCache } from '../api/studentsService';
 import { notifyNewStudentsImport, savePendingToast } from '../utils/notificationService';
 
 export default function ImportPage() {
@@ -126,6 +128,9 @@ export default function ImportPage() {
           message: `Le fichier ${file.name} a été importé avec succès.`,
         });
       }
+
+      clearAcademicsCache();
+      clearStudentsCache();
 
       // Redirige vers le tableau de bord académique
       navigate('/');

@@ -1,7 +1,15 @@
 import axiosClient from './axiosClient';
 
-export const getNiveaux = async () => {
+let niveauxCache = null;
+
+export const clearStudentsCache = () => {
+  niveauxCache = null;
+};
+
+export const getNiveaux = async (force = false) => {
+  if (niveauxCache && !force) return niveauxCache;
   const { data } = await axiosClient.get('/students/niveaux/');
+  niveauxCache = data;
   return data;
 };
 

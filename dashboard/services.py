@@ -1,7 +1,27 @@
 """Services d'agrégation pour le dashboard analytique."""
+import hashlib
+import json
+from django.core.cache import cache
 from django.db.models import Avg, Count, Q
 from django.db.models.functions import Coalesce
 from academics.models import FactEvaluation, ResultatChoices
+
+
+def _get_cache(prefix: str, filters: dict):
+    try:
+        cleaned = {k: str(v).strip() for k, v in (filters or {}).items() if v is not None and str(v).strip() != ''}
+        key = f"dash:{prefix}:{hashlib.md5(json.dumps(cleaned, sort_keys=True).encode()).hexdigest()[:12]}"
+        return key, cache.get(key)
+    except Exception:
+        return None, None
+
+
+def _set_cache(key: str, data, timeout: int = 300):
+    if key and data is not None:
+        try:
+            cache.set(key, data, timeout=timeout)
+        except Exception:
+            pass
 
 
 def _apply_filters(queryset, filters: dict):
@@ -42,25 +62,38 @@ def get_kpi_summary(filters: dict) -> dict:
     - total_rattrapage : nombre d'évaluations passées en rattrapage
     - taux_passage_rattrapage : % d'évaluations avec note de rattrapage
     """
+    ckey, cached = _get_cache('kpi', filters)
+    if cached is not None:
+        return cached
+
     qs = _apply_filters(FactEvaluation.objects.all(), filters)
 
-    total = qs.count()
-    admis = qs.filter(resultat=ResultatChoices.ADMIS).count()
-    ajourne = qs.filter(resultat=ResultatChoices.AJOURNE).count()
-    en_rattrapage = qs.filter(note_rattrapage__isnull=False).count()
-    effectif_total_evalue = qs.values('id_etu').distinct().count()
-    total_modules = qs.values('id_mod').distinct().count()
-    moyenne_generale = qs.aggregate(avg=Avg('moyenne'))['avg']
+    stats = qs.aggregate(
+        total=Count('id_eval'),
+        admis=Count('id_eval', filter=Q(resultat=ResultatChoices.ADMIS)),
+        ajourne=Count('id_eval', filter=Q(resultat=ResultatChoices.AJOURNE)),
+        en_rattrapage=Count('id_eval', filter=Q(note_rattrapage__isnull=False)),
+        effectif_total_evalue=Count('id_etu', distinct=True),
+        total_modules=Count('id_mod', distinct=True),
+        moyenne_generale=Avg('moyenne'),
+    )
+
+    total = stats['total'] or 0
+    admis = stats['admis'] or 0
+    ajourne = stats['ajourne'] or 0
+    en_rattrapage = stats['en_rattrapage'] or 0
+    effectif_total_evalue = stats['effectif_total_evalue'] or 0
+    total_modules = stats['total_modules'] or 0
+    moyenne_generale = stats['moyenne_generale']
 
     # Modules avec moyenne générale < 10
-    mod_stats = qs.values('id_mod').annotate(avg=Avg('moyenne'))
-    modules_a_risque = sum(1 for m in mod_stats if m['avg'] is not None and m['avg'] < 10)
+    modules_a_risque = qs.values('id_mod').annotate(avg=Avg('moyenne')).filter(avg__lt=10).count()
 
     taux_reussite = round((admis / total) * 100, 2) if total > 0 else 0
     taux_echec = round((ajourne / total) * 100, 2) if total > 0 else 0
     taux_passage_rattrapage = round((en_rattrapage / total) * 100, 2) if total > 0 else 0
 
-    return {
+    res = {
         'effectif_total_evalue': effectif_total_evalue,
         'total_modules': total_modules,
         'moyenne_generale': max(0.0, min(20.0, round(float(moyenne_generale), 2))) if moyenne_generale is not None else None,
@@ -70,10 +103,16 @@ def get_kpi_summary(filters: dict) -> dict:
         'total_rattrapage': en_rattrapage,
         'taux_passage_rattrapage': taux_passage_rattrapage,
     }
+    _set_cache(ckey, res)
+    return res
 
 
 def get_repartition_par_niveau(filters: dict) -> list:
     """Moyenne et taux de réussite groupés par niveau (pour graphique en barres)."""
+    ckey, cached = _get_cache('repart_niv', filters)
+    if cached is not None:
+        return cached
+
     qs = _apply_filters(FactEvaluation.objects.all(), filters)
     data = (
         qs.values('id_niv__code_niv')
@@ -94,6 +133,7 @@ def get_repartition_par_niveau(filters: dict) -> list:
             'taux_reussite': taux,
             'effectif': row['total'],
         })
+    _set_cache(ckey, result)
     return result
 
 
@@ -102,6 +142,10 @@ def get_devoir_vs_examen(filters: dict) -> list:
     Compare la moyenne des devoirs (CC ramené sur 20) vs examen final (sur 20)
     pour chaque niveau académique officiel.
     """
+    ckey, cached = _get_cache('devoir_exam', filters)
+    if cached is not None:
+        return cached
+
     qs = _apply_filters(FactEvaluation.objects.all(), filters)
     qs = qs.filter(id_niv__code_niv__in=NIVEAUX_OFFICIELS)
     data = (
@@ -126,6 +170,7 @@ def get_devoir_vs_examen(filters: dict) -> list:
             'moyenne': moy_gen,
             'effectif': row['total'],
         })
+    _set_cache(ckey, result)
     return result
 
 
@@ -134,6 +179,10 @@ def get_evolution_par_annee(filters: dict) -> list:
     Évolution comparant les moyennes générales des années académiques (sur 20).
     Exclut les valeurs 'nan' et fournit la progression réelle sur les cohortes.
     """
+    ckey, cached = _get_cache('evolution', filters)
+    if cached is not None:
+        return cached
+
     # Note: On compare les années académiques entre elles même si un filtre d'année est actif
     filters_no_annee = {k: v for k, v in filters.items() if k != 'id_annee'}
     qs = _apply_filters(FactEvaluation.objects.all(), filters_no_annee)
@@ -167,6 +216,7 @@ def get_evolution_par_annee(filters: dict) -> list:
                 'total': tot,
             })
 
+    _set_cache(ckey, result)
     return result
 
 
@@ -185,6 +235,10 @@ def get_comparaison_filieres(filters: dict) -> list:
     Renvoie un premier groupe 'Global' (moyenne générale de chaque filière),
     puis un groupe par cycle / palier (B1, B2, B3, M1, M2) pour un Clustered Bar Chart.
     """
+    ckey, cached = _get_cache('comparaison', filters)
+    if cached is not None:
+        return cached
+
     # On ignore le filtre filiere ici pour toujours pouvoir comparer les deux filières côte à côte
     comp_filters = {k: v for k, v in (filters or {}).items() if k != 'filiere'}
     qs = _apply_filters(FactEvaluation.objects.all(), comp_filters)
@@ -223,18 +277,19 @@ def get_comparaison_filieres(filters: dict) -> list:
             'systeme_information': _round(par_niveau.get(f'{prefix}SI')),
         })
 
+    _set_cache(ckey, result)
     return result
 
 
 def get_top_modules(filters: dict, limit: int = 5) -> list:
     """
     Top N des couples (module, niveau) ayant la meilleure moyenne, pour
-    la liste "Top 5 modules" du dashboard. On regroupe par module ET
-    niveau (et non juste par module) car un même module peut être suivi
-    par plusieurs niveaux différents avec des résultats très différents —
-    afficher une seule moyenne "toutes promotions confondues" serait
-    trompeur.
+    la liste "Top 5 modules" du dashboard.
     """
+    ckey, cached = _get_cache(f'top_modules_{limit}', filters)
+    if cached is not None:
+        return cached
+
     qs = _apply_filters(FactEvaluation.objects.all(), filters)
     data = (
         qs.exclude(moyenne__isnull=True)
@@ -243,7 +298,7 @@ def get_top_modules(filters: dict, limit: int = 5) -> list:
         .annotate(moyenne=Avg('moyenne'), effectif=Count('id_eval'))
         .order_by('-moyenne')[:limit]
     )
-    return [
+    result = [
         {
             'id_mod': row['id_mod'],
             'module': row['id_mod__nom_mod'],
@@ -253,13 +308,20 @@ def get_top_modules(filters: dict, limit: int = 5) -> list:
         }
         for row in data
     ]
+    _set_cache(ckey, result)
+    return result
 
 
 def get_distribution_notes(filters: dict) -> list:
     """
     Répartition des notes par tranche (histogramme conforme à la maquette).
     Tranches : <5, 5-8, 8-10, 10-12, 12-14, 14-16, 16-18, 18-20.
+    Optimisé en 1 seule requête SQL par agrégation conditionnelle.
     """
+    ckey, cached = _get_cache('distribution', filters)
+    if cached is not None:
+        return cached
+
     qs = _apply_filters(FactEvaluation.objects.all(), filters)
     tranches = [
         ('<5', 0, 5),
@@ -271,14 +333,21 @@ def get_distribution_notes(filters: dict) -> list:
         ('16-18', 16, 18),
         ('18-20', 18, 20.01),
     ]
-    result = []
-    for label, borne_min, borne_max in tranches:
-        count = qs.filter(moyenne__gte=borne_min, moyenne__lt=borne_max).count()
-        result.append({
+
+    aggregations = {
+        f"c_{i}": Count('id_eval', filter=Q(moyenne__gte=bmin, moyenne__lt=bmax))
+        for i, (_, bmin, bmax) in enumerate(tranches)
+    }
+    counts = qs.aggregate(**aggregations)
+    result = [
+        {
             'tranche': label,
-            'effectif': count,
-            'isBelow10': borne_min < 10,
-        })
+            'effectif': counts.get(f"c_{i}", 0) or 0,
+            'isBelow10': bmin < 10,
+        }
+        for i, (label, bmin, bmax) in enumerate(tranches)
+    ]
+    _set_cache(ckey, result)
     return result
 
 

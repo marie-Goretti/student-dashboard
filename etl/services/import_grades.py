@@ -555,4 +555,11 @@ def import_grades_file(file_obj, sheet_name: str = None, filename: str = None) -
             "students": report["nouveaux_etudiants"][:25],
         }
 
+    # Invalidation du cache analytique et des recommandations pour données fraîches
+    try:
+        from django.core.cache import cache
+        cache.clear()
+    except Exception:
+        pass
+
     return report

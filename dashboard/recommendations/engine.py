@@ -117,7 +117,12 @@ class RecommendationsEngine:
             }
 
         recommendations = []
-        comparative_qs = full_cohort_queryset if full_cohort_queryset is not None else queryset
+        if full_cohort_queryset is not None and filters.get('semestre'):
+            comparative_evals = list(
+                full_cohort_queryset.select_related('id_etu', 'id_mod', 'id_niv', 'id_annee')
+            )
+        else:
+            comparative_evals = evaluations
 
         # 1. Écart entre devoirs et examens
         recommendations.extend(self._eval_rule_1_devoir_examen_gap(evaluations, filters, now_iso))
@@ -141,10 +146,10 @@ class RecommendationsEngine:
         recommendations.extend(self._eval_rule_7_near_validation(evaluations, filters, user_can_view_students, now_iso))
 
         # 9. Évolution entre semestres
-        recommendations.extend(self._eval_rule_9_semester_variation(comparative_qs, filters, now_iso))
+        recommendations.extend(self._eval_rule_9_semester_variation(comparative_evals, filters, now_iso))
 
         # 11. Amélioration significative (résultat positif)
-        recommendations.extend(self._eval_rule_11_significant_improvement(comparative_qs, filters, now_iso))
+        recommendations.extend(self._eval_rule_11_significant_improvement(comparative_evals, filters, now_iso))
 
         # 12. Faible réussite après rattrapage
         recommendations.extend(self._eval_rule_12_low_rattrapage_pass_rate(evaluations, filters, now_iso))
