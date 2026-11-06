@@ -50,7 +50,7 @@ export default function DistributionNotesCard({ data, onExploreClick }) {
         </div>
         <button
           onClick={onExploreClick}
-          className="inline-flex items-center gap-1 px-3 py-1 rounded-xl border border-cream-200 text-xs font-semibold text-ink/80 hover:bg-cream-100 hover:text-ink transition shadow-xs cursor-pointer"
+          className="print:hidden inline-flex items-center gap-1 px-3 py-1 rounded-xl border border-cream-200 text-xs font-semibold text-ink/80 hover:bg-cream-100 hover:text-ink transition shadow-xs cursor-pointer"
         >
           Explorer la performance
           <ArrowUpRight size={13} className="text-ink/50" />
@@ -63,7 +63,7 @@ export default function DistributionNotesCard({ data, onExploreClick }) {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
-              margin={{ top: 6, right: 8, left: 0, bottom: 2 }}
+              margin={{ top: 6, right: 8, left: -4, bottom: 2 }}
             >
               <CartesianGrid vertical={false} stroke="#EFEAE0" strokeDasharray="3 3" />
               <XAxis
@@ -72,7 +72,13 @@ export default function DistributionNotesCard({ data, onExploreClick }) {
                 axisLine={false}
                 tickLine={false}
               />
-              <YAxis hide />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 10, fill: '#0B1220', fillOpacity: 0.6 }}
+                axisLine={false}
+                tickLine={false}
+                width={32}
+              />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="effectif" radius={[4, 4, 0, 0]} barSize={22}>
                 {chartData.map((entry, index) => (

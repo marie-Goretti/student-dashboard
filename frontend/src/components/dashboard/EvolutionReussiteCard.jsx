@@ -50,14 +50,8 @@ export default function EvolutionReussiteCard({
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={chartData}
-              margin={{ top: 8, right: 8, left: 0, bottom: 2 }}
+              margin={{ top: 8, right: 8, left: -4, bottom: 2 }}
             >
-              <defs>
-                <linearGradient id="moyLinearGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2C4A6E" stopOpacity={0.22} />
-                  <stop offset="95%" stopColor="#2C4A6E" stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
               <CartesianGrid vertical={false} stroke="#EFEAE0" strokeDasharray="3 3" />
               <XAxis
                 dataKey="annee"
@@ -65,7 +59,14 @@ export default function EvolutionReussiteCard({
                 axisLine={false}
                 tickLine={false}
               />
-              <YAxis hide domain={[0, 20]} />
+              <YAxis
+                domain={[0, 20]}
+                ticks={[0, 5, 10, 15, 20]}
+                tick={{ fontSize: 10, fill: '#0B1220', fillOpacity: 0.6 }}
+                axisLine={false}
+                tickLine={false}
+                width={28}
+              />
               <ReferenceLine y={10} stroke="#7A1620" strokeDasharray="3 3" strokeOpacity={0.4} />
               <Tooltip content={<CustomTooltip />} />
               <Area
@@ -74,7 +75,8 @@ export default function EvolutionReussiteCard({
                 name="Moyenne générale"
                 stroke="#2C4A6E"
                 strokeWidth={2.5}
-                fill="url(#moyLinearGrad)"
+                fill="#2C4A6E"
+                fillOpacity={0.16}
                 dot={{ r: 3.5, fill: '#2C4A6E', stroke: '#ffffff', strokeWidth: 1.5 }}
                 activeDot={{ r: 5, fill: '#7A1620', stroke: '#ffffff', strokeWidth: 2 }}
               />

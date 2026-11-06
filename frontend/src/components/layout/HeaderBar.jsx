@@ -1,10 +1,13 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, FileDown, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import NotificationsDropdown from './NotificationsDropdown';
 
 export default function HeaderBar({
   title = 'Tableau de bord académique',
   subtitle,
+  onExportPdf,
+  isExporting = false,
+  exportLabel = 'Exporter en PDF',
 }) {
   const { user } = useAuth() || {};
 
@@ -12,7 +15,7 @@ export default function HeaderBar({
   const activeSubtitle = subtitle || '';
 
   return (
-    <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3.5">
+    <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3.5 print:hidden">
       {/* Titre & sous-titre */}
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-ink tracking-tight font-sans">
@@ -25,8 +28,32 @@ export default function HeaderBar({
         )}
       </div>
 
-      {/* Barre d'outils droite : Notification, Profil */}
-      <div className="flex items-center gap-3">
+      {/* Barre d'outils droite : Export PDF, Notification, Profil */}
+      <div className="flex items-center gap-2.5">
+        {/* Bouton Exporter en PDF avec téléchargement direct */}
+        {onExportPdf && (
+          <button
+            type="button"
+            onClick={onExportPdf}
+            disabled={isExporting}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white border border-cream-200 text-ink shadow-xs hover:bg-cream-100 hover:border-cream-300 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            title="Télécharger immédiatement le tableau de bord en PDF"
+            aria-label="Télécharger immédiatement le tableau de bord en PDF"
+          >
+            {isExporting ? (
+              <>
+                <Loader2 size={14} className="animate-spin text-maroon-600" />
+                <span className="hidden sm:inline">Téléchargement...</span>
+              </>
+            ) : (
+              <>
+                <FileDown size={14} className="text-maroon-600" />
+                <span className="hidden sm:inline">{exportLabel}</span>
+              </>
+            )}
+          </button>
+        )}
+
         {/* Menu déroulant des notifications interactives */}
         <NotificationsDropdown />
 

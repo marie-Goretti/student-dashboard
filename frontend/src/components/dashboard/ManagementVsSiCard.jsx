@@ -91,7 +91,7 @@ export default function ManagementVsSiCard({
               data={chartData}
               barGap={3}
               barCategoryGap="22%"
-              margin={{ top: 8, right: 8, left: 0, bottom: 2 }}
+              margin={{ top: 8, right: 8, left: -4, bottom: 2 }}
             >
               <CartesianGrid vertical={false} stroke="#EFEAE0" strokeDasharray="3 3" />
               <XAxis
@@ -100,7 +100,14 @@ export default function ManagementVsSiCard({
                 axisLine={false}
                 tickLine={false}
               />
-              <YAxis hide domain={[0, 20]} />
+              <YAxis
+                domain={[0, 20]}
+                ticks={[0, 5, 10, 15, 20]}
+                tick={{ fontSize: 10, fill: '#0B1220', fillOpacity: 0.6 }}
+                axisLine={false}
+                tickLine={false}
+                width={28}
+              />
               <ReferenceLine y={10} stroke="#7A1620" strokeDasharray="3 3" strokeOpacity={0.35} />
               <Tooltip content={<CustomTooltip />} />
               <Bar

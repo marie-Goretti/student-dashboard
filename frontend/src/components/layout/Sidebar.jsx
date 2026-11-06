@@ -17,7 +17,7 @@ export default function Sidebar() {
   const { logout } = useAuth();
 
   return (
-    <aside className="w-[72px] bg-white border-r border-cream-200 h-screen flex flex-col items-center py-4 fixed left-0 top-0 z-40 select-none">
+    <aside className="print:hidden w-[72px] bg-white border-r border-cream-200 h-screen flex flex-col items-center py-4 fixed left-0 top-0 z-40 select-none">
       {/* 1. Sur le haut : Le logo */}
       <NavLink
         to="/"

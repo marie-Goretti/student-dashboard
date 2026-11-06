@@ -38,7 +38,7 @@ export default function HeroBanner({ kpi, onAlertClick }) {
 
             <button
               onClick={onAlertClick}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white bg-maroon-600 hover:bg-maroon-700 transition shadow-xs cursor-pointer"
+              className="print:hidden inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white bg-maroon-600 hover:bg-maroon-700 transition shadow-xs cursor-pointer"
             >
               Voir les alertes
               <ArrowUpRight size={13} />
@@ -56,7 +56,7 @@ export default function HeroBanner({ kpi, onAlertClick }) {
           </div>
 
           {/* Les 4 cartes compactes : Étudiants, Modules, Moyenne générale, Situation à surveiller */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 print:grid-cols-4">
             {/* 1. Étudiants */}
             <div className="bg-white rounded-xl p-3 md:p-3.5 shadow-xs border border-cream-200/80 flex flex-col justify-between">
               <div className="flex items-center justify-between text-ink/70 mb-1.5">

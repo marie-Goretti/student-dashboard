@@ -7,7 +7,7 @@ import LineChartCard from '../components/dashboard/LineChartCard';
 import Pagination from '../components/common/Pagination';
 import { getStudentDashboard } from '../api/dashboardService';
 import { getAnnees } from '../api/academicsService';
-import { BookOpen, TrendingUp, Award, RotateCcw, ArrowLeft, Mail, Calendar, Filter, CheckCircle2, XCircle, Info, Sparkles } from 'lucide-react';
+import { BookOpen, TrendingUp, Award, RotateCcw, ArrowLeft, Mail, Calendar, Filter, CheckCircle2, XCircle, Info, Sparkles, FileDown } from 'lucide-react';
 
 const RESULTAT_BADGE = {
   ADMIS: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
@@ -78,8 +78,18 @@ export default function StudentDashboardPage() {
           </button>
           <h1 className="text-2xl font-bold text-gray-900">Fiche Étudiant</h1>
         </div>
-        <div className="w-full sm:w-80">
-          <StudentSearchBar />
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => window.print()}
+            className="print:hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-cream-200 text-ink shadow-xs hover:bg-cream-100 transition cursor-pointer"
+            title="Exporter la fiche étudiant en PDF"
+          >
+            <FileDown size={14} className="text-maroon-600" />
+            <span>Exporter en PDF</span>
+          </button>
+          <div className="w-full sm:w-80">
+            <StudentSearchBar />
+          </div>
         </div>
       </div>
 

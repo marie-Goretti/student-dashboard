@@ -184,7 +184,10 @@ export default function RecommandationsPage() {
   return (
     <MainLayout>
       {/* 1. HeaderBar institutionnelle EduPulse */}
-      <HeaderBar title="Recommandations Pédagogiques & Décisionnelles" />
+      <HeaderBar
+        title="Recommandations Pédagogiques & Décisionnelles"
+        onExportPdf={() => window.print()}
+      />
 
       {/* 2. Barre de filtres académiques */}
       <FiltersBar

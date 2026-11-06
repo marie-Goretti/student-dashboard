@@ -9,3 +9,111 @@ body {
 h1, h2, h3 {
   @apply font-serif;
 }
+
+/* ==========================================================================
+   Styles d'impression et d'export PDF haute fidélité
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm 10mm;
+  }
+
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  html, body {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+    font-size: 10pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Éléments masqués lors de l'export PDF */
+  .print\:hidden,
+  aside,
+  nav,
+  header .print\:hidden,
+  [aria-label="Notification d'importation"] {
+    display: none !important;
+  }
+
+  /* Éléments affichés uniquement lors de l'impression */
+  .print\:block {
+    display: block !important;
+  }
+
+  .print\:flex {
+    display: flex !important;
+  }
+
+  .print\:grid {
+    display: grid !important;
+  }
+
+  /* Pleine largeur du contenu principal sans marge de sidebar */
+  main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Grille des cartes adaptée au paysage A4 */
+  .print\:grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .print\:grid-cols-12 {
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  }
+
+  .print\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .print\:col-span-4 {
+    grid-column: span 4 / span 4 !important;
+  }
+
+  .print\:col-span-5 {
+    grid-column: span 5 / span 5 !important;
+  }
+
+  .print\:col-span-3 {
+    grid-column: span 3 / span 3 !important;
+  }
+
+  /* Éviter la découpe des cartes et indicateurs entre deux pages */
+  .card,
+  [class*="rounded-2xl"],
+  [class*="rounded-xl"],
+  .shadow-xs,
+  .shadow-sm {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  /* Rendu vectorielRecharts */
+  .recharts-responsive-container {
+    width: 100% !important;
+    min-height: 180px !important;
+  }
+
+  .recharts-wrapper {
+    max-width: 100% !important;
+  }
+
+  .recharts-surface {
+    overflow: visible !important;
+  }
+}

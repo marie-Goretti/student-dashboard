@@ -78,7 +78,7 @@ export default function FiltersBar({
   const selectClass = 'bg-transparent text-ink font-semibold outline-none cursor-pointer text-xs';
 
   return (
-    <div className="bg-white rounded-2xl border border-cream-200 shadow-xs p-3.5 flex items-center justify-between gap-3 flex-wrap mb-6">
+    <div className="print:hidden bg-white rounded-2xl border border-cream-200 shadow-xs p-3.5 flex items-center justify-between gap-3 flex-wrap mb-6">
       <div className="flex items-center gap-2.5 flex-wrap">
         {/* Année */}
         {showAnnee && (
