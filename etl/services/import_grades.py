@@ -13,6 +13,7 @@ Optimisations haute performance :
 - Insertion/mise à jour groupée native (bulk_create ON CONFLICT DO UPDATE).
 - Vitesse d'exécution : passe de plusieurs minutes à quelques secondes.
 """
+from datetime import datetime
 import random
 import re
 import string
@@ -289,6 +290,8 @@ def import_grades_file(file_obj, sheet_name: str = None, filename: str = None) -
         "etudiants_introuvables": 0,
         "etudiants_ambigus": 0,
         "etudiants_auto_crees": 0,
+        "nouveaux_etudiants": [],
+        "notification": None,
         "annee_academique": default_annee_academique or None,
     }
 
@@ -348,6 +351,13 @@ def import_grades_file(file_obj, sheet_name: str = None, filename: str = None) -
                     )
                     student_lookup[key] = etudiant
                     report["etudiants_auto_crees"] += 1
+                    report["nouveaux_etudiants"].append({
+                        "id_etu": etudiant.id_etu,
+                        "matricule": final_mat,
+                        "nom": nom_clean,
+                        "prenom": prenom_clean,
+                        "mail": etudiant.mail,
+                    })
                 else:
                     report["errors"].append({
                         "ligne": ligne_excel,
@@ -508,5 +518,41 @@ def import_grades_file(file_obj, sheet_name: str = None, filename: str = None) -
             unique_fields=["id_etu", "id_mod", "id_niv", "id_annee"],
             batch_size=2000,
         )
+
+    # Notification automatique lorsque la base de données détecte de nouveaux étudiants
+    nb_nouveaux = report["etudiants_auto_crees"]
+    if nb_nouveaux > 0:
+        plural = nb_nouveaux > 1
+        titre = f"{nb_nouveaux} nouveaux étudiants détectés" if plural else "1 nouvel étudiant détecté"
+        if nb_nouveaux == 1:
+            first_st = report["nouveaux_etudiants"][0]
+            nom_aff = f"{first_st['nom']} {first_st['prenom']}".strip()
+            msg = (
+                f"1 nouvel étudiant ({nom_aff}) non répertorié dans la base de données a été détecté "
+                f"et automatiquement créé lors de l'import du fichier de suivi des notes"
+            )
+        else:
+            msg = (
+                f"{nb_nouveaux} nouveaux étudiants non répertoriés dans la base de données ont été détectés "
+                f"et automatiquement créés lors de l'import du fichier de suivi des notes"
+            )
+        if effective_fn:
+            msg += f" ({effective_fn})."
+        else:
+            msg += "."
+
+        report["notification"] = {
+            "id": f"notif-new-students-{int(datetime.now().timestamp() * 1000)}",
+            "title": titre,
+            "message": msg,
+            "type": "warning",
+            "unread": True,
+            "link": "/students",
+            "actionLabel": "Voir les étudiants",
+            "time": "À l'instant",
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "count": nb_nouveaux,
+            "students": report["nouveaux_etudiants"][:25],
+        }
 
     return report

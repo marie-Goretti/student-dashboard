@@ -1,4 +1,4 @@
-import { Search, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import NotificationsDropdown from './NotificationsDropdown';
 
@@ -25,18 +25,8 @@ export default function HeaderBar({
         )}
       </div>
 
-      {/* Barre d'outils droite : Recherche, Notification, Profil */}
+      {/* Barre d'outils droite : Notification, Profil */}
       <div className="flex items-center gap-3">
-        {/* Champ de recherche */}
-        <div className="flex items-center gap-2 bg-white rounded-full px-4 py-1.5 border border-cream-200 shadow-xs w-60 md:w-72">
-          <Search size={15} className="text-ink/40 shrink-0" />
-          <input
-            type="text"
-            placeholder="Rechercher dans EduPulse"
-            className="bg-transparent text-xs w-full outline-none placeholder:text-ink/40 text-ink"
-          />
-        </div>
-
         {/* Menu déroulant des notifications interactives */}
         <NotificationsDropdown />
 

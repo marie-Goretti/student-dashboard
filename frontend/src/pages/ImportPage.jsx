@@ -13,6 +13,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { analyzeFile, importAuto } from '../api/etlService';
+import { notifyNewStudentsImport, savePendingToast } from '../utils/notificationService';
 
 export default function ImportPage() {
   const navigate = useNavigate();
@@ -106,7 +107,26 @@ export default function ImportPage() {
     setError(null);
 
     try {
-      await importAuto(file);
+      const res = await importAuto(file);
+      const report = res?.report || res;
+      const notifData = res?.notification || report?.notification;
+      const newStudentsCount = report?.etudiants_auto_crees || notifData?.count || 0;
+
+      // Déclenchement de la notification lorsque la base détecte de nouveaux étudiants
+      if (newStudentsCount > 0) {
+        notifyNewStudentsImport({
+          count: newStudentsCount,
+          filename: file.name,
+          students: report?.nouveaux_etudiants || notifData?.students || [],
+        });
+      } else {
+        savePendingToast({
+          type: 'success',
+          title: 'Importation réussie',
+          message: `Le fichier ${file.name} a été importé avec succès.`,
+        });
+      }
+
       // Redirige vers le tableau de bord académique
       navigate('/');
     } catch (err) {

@@ -71,6 +71,34 @@ export default function NotificationsDropdown() {
     }
   }, [notifications]);
 
+  // Synchronisation en temps réel (imports, événements personnalisés et multi-onglets)
+  useEffect(() => {
+    const handleNewNotification = (e) => {
+      const newNotif = e.detail;
+      if (newNotif) {
+        setNotifications((prev) => {
+          if (prev.some((n) => n.id === newNotif.id)) return prev;
+          return [newNotif, ...prev];
+        });
+      }
+    };
+
+    const handleStorageChange = (e) => {
+      if (e.key === 'edupulse_notifications' && e.newValue) {
+        try {
+          setNotifications(JSON.parse(e.newValue));
+        } catch {}
+      }
+    };
+
+    window.addEventListener('edupulse_notification_added', handleNewNotification);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('edupulse_notification_added', handleNewNotification);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   // Fermer quand on clique en dehors
   useEffect(() => {
     const handleClickOutside = (e) => {

@@ -438,6 +438,7 @@ def execute_auto_import(file_obj) -> dict:
             'target': 'grades',
             'type_libelle': libelle,
             'report': report,
+            'notification': report.get('notification'),
         }
     else:
         report = import_students_file(excel_file, filename=filename)
