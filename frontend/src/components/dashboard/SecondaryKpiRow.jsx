@@ -54,24 +54,25 @@ export default function SecondaryKpiRow({ kpi }) {
         </div>
       </div>
 
-      {/* 3. Au rattrapage */}
+      {/* 3. Étudiants au rattrapage */}
       <div
         onClick={() => navigate('/rattrapages')}
         className="bg-white rounded-xl p-3 md:p-3.5 shadow-xs border border-cream-200/80 flex flex-col justify-between cursor-pointer hover:border-cream-300 transition"
+        title="Nombre d'étudiants distincts ayant au moins une matière en rattrapage"
       >
         <div className="flex items-center justify-between text-ink/70 mb-1.5">
           <div className="flex items-center gap-1.5">
             <RotateCcw size={14} className="text-amber-600" />
-            <span className="text-[11px] font-bold text-ink/70">Au rattrapage</span>
+            <span className="text-[11px] font-bold text-ink/70">Étudiants au rattrapage</span>
           </div>
           <ArrowUpRight size={14} className="text-ink/30" />
         </div>
         <div className="flex items-baseline justify-between">
           <span className="text-xl md:text-2xl font-bold text-ink tracking-tight font-sans">
-            {kpi?.total_rattrapage !== undefined ? formatNumber(kpi.total_rattrapage) : '983'}
+            {kpi?.total_rattrapage !== undefined ? formatNumber(kpi.total_rattrapage) : '—'}
           </span>
           <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">
-            +4,2%
+            {kpi?.taux_etudiants_rattrapage !== undefined ? `${kpi.taux_etudiants_rattrapage}%` : 'étudiants'}
           </span>
         </div>
       </div>

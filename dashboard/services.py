@@ -73,6 +73,7 @@ def get_kpi_summary(filters: dict) -> dict:
         admis=Count('id_eval', filter=Q(resultat=ResultatChoices.ADMIS)),
         ajourne=Count('id_eval', filter=Q(resultat=ResultatChoices.AJOURNE)),
         en_rattrapage=Count('id_eval', filter=Q(note_rattrapage__isnull=False)),
+        etudiants_rattrapage=Count('id_etu', distinct=True, filter=Q(note_rattrapage__isnull=False)),
         effectif_total_evalue=Count('id_etu', distinct=True),
         total_modules=Count('id_mod', distinct=True),
         moyenne_generale=Avg('moyenne'),
@@ -82,6 +83,7 @@ def get_kpi_summary(filters: dict) -> dict:
     admis = stats['admis'] or 0
     ajourne = stats['ajourne'] or 0
     en_rattrapage = stats['en_rattrapage'] or 0
+    etudiants_rattrapage = stats['etudiants_rattrapage'] or 0
     effectif_total_evalue = stats['effectif_total_evalue'] or 0
     total_modules = stats['total_modules'] or 0
     moyenne_generale = stats['moyenne_generale']
@@ -91,6 +93,10 @@ def get_kpi_summary(filters: dict) -> dict:
 
     taux_reussite = round((admis / total) * 100, 2) if total > 0 else 0
     taux_echec = round((ajourne / total) * 100, 2) if total > 0 else 0
+    taux_etudiants_rattrapage = (
+        round((etudiants_rattrapage / effectif_total_evalue) * 100, 1)
+        if effectif_total_evalue > 0 else 0
+    )
     taux_passage_rattrapage = round((en_rattrapage / total) * 100, 2) if total > 0 else 0
 
     res = {
@@ -100,7 +106,10 @@ def get_kpi_summary(filters: dict) -> dict:
         'modules_a_risque': modules_a_risque,
         'taux_reussite': taux_reussite,
         'taux_echec': taux_echec,
-        'total_rattrapage': en_rattrapage,
+        'total_rattrapage': etudiants_rattrapage, # Nombre d'étudiants distincts au rattrapage conformément à la directive
+        'etudiants_rattrapage': etudiants_rattrapage,
+        'evaluations_rattrapage': en_rattrapage,
+        'taux_etudiants_rattrapage': taux_etudiants_rattrapage,
         'taux_passage_rattrapage': taux_passage_rattrapage,
     }
     _set_cache(ckey, res)

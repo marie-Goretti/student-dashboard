@@ -163,9 +163,9 @@ export default function ImportPage() {
         <div
           className="lg:col-span-5 relative rounded-3xl overflow-hidden shadow-sm flex flex-col justify-between p-8 text-white min-h-[460px]"
           style={{
-            backgroundImage: "url('/campus-banner.png')",
+            backgroundImage: "url('/lbs-building.jpg')",
             backgroundSize: 'cover',
-            backgroundPosition: 'center 40%',
+            backgroundPosition: 'center 45%',
           }}
         >
           {/* Voile sombre pour lisibilité */}

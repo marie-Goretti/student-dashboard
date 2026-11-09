@@ -1,6 +1,6 @@
 import { Sparkles, ArrowUpRight, Users, BookOpen, TrendingUp, AlertTriangle } from 'lucide-react';
 
-export default function HeroBanner({ kpi, onAlertClick }) {
+export default function HeroBanner({ kpi, loading = false, onAlertClick }) {
   const formatNumber = (val) => {
     if (val === null || val === undefined) return '—';
     return Number(val).toLocaleString('fr-FR');
@@ -14,15 +14,17 @@ export default function HeroBanner({ kpi, onAlertClick }) {
     });
   };
 
+  const isLoaded = Boolean(kpi && !loading);
+
   return (
     <div className="mb-3.5">
       {/* Bannière Hero compacte avec image de campus */}
       <div
         className="relative rounded-2xl overflow-hidden shadow-xs bg-navy-900 border border-cream-200"
         style={{
-          backgroundImage: "url('/campus-banner.png')",
+          backgroundImage: "url('/lbs-building.jpg')",
           backgroundSize: 'cover',
-          backgroundPosition: 'center 35%',
+          backgroundPosition: 'center 45%',
         }}
       >
         {/* Voile sombre pour lisibilité maximale */}
@@ -68,10 +70,12 @@ export default function HeroBanner({ kpi, onAlertClick }) {
               </div>
               <div className="flex items-baseline justify-between">
                 <span className="text-xl md:text-2xl font-bold text-ink tracking-tight font-sans">
-                  {formatNumber(kpi?.effectif_total_evalue ?? 7279)}
+                  {isLoaded && kpi.effectif_total_evalue != null
+                    ? formatNumber(kpi.effectif_total_evalue)
+                    : '—'}
                 </span>
                 <span className="text-[10px] font-semibold text-ink/60 bg-cream-100 px-1.5 py-0.5 rounded-full">
-                  +4,6%
+                  Évalués
                 </span>
               </div>
             </div>
@@ -87,10 +91,12 @@ export default function HeroBanner({ kpi, onAlertClick }) {
               </div>
               <div className="flex items-baseline justify-between">
                 <span className="text-xl md:text-2xl font-bold text-ink tracking-tight font-sans">
-                  {formatNumber(kpi?.total_modules ?? 188)}
+                  {isLoaded && kpi.total_modules != null
+                    ? formatNumber(kpi.total_modules)
+                    : '—'}
                 </span>
                 <span className="text-[10px] font-semibold text-ink/60 bg-cream-100 px-1.5 py-0.5 rounded-full">
-                  +3,2%
+                  Enseignés
                 </span>
               </div>
             </div>
@@ -106,12 +112,12 @@ export default function HeroBanner({ kpi, onAlertClick }) {
               </div>
               <div className="flex items-baseline justify-between">
                 <span className="text-xl md:text-2xl font-bold text-ink tracking-tight font-sans">
-                  {kpi?.moyenne_generale !== null && kpi?.moyenne_generale !== undefined
+                  {isLoaded && kpi.moyenne_generale != null
                     ? `${formatDecimal(kpi.moyenne_generale)}`
-                    : '10,97'}
+                    : '—'}
                 </span>
                 <span className="text-[10px] font-semibold text-ink/60 bg-cream-100 px-1.5 py-0.5 rounded-full">
-                  +0,8%
+                  sur 20
                 </span>
               </div>
             </div>
@@ -127,10 +133,16 @@ export default function HeroBanner({ kpi, onAlertClick }) {
               </div>
               <div>
                 <p className="text-xl md:text-2xl font-bold text-white tracking-tight font-sans leading-tight">
-                  {kpi?.modules_a_risque !== undefined ? `${kpi.modules_a_risque} modules` : '23 modules'}
+                  {isLoaded && kpi.modules_a_risque !== undefined
+                    ? `${kpi.modules_a_risque} module${kpi.modules_a_risque > 1 ? 's' : ''}`
+                    : '—'}
                 </p>
                 <p className="text-[10px] text-white/80 mt-0.5 truncate">
-                  requièrent une action prioritaire
+                  {isLoaded && kpi.modules_a_risque !== undefined
+                    ? kpi.modules_a_risque > 0
+                      ? 'requièrent une action prioritaire'
+                      : 'aucune matière critique'
+                    : 'analyse en cours...'}
                 </p>
               </div>
             </div>
