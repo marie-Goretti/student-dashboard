@@ -1,4 +1,8 @@
 from django.urls import path
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.reverse import reverse
 from .views import (
     KpiSummaryView, RepartitionParNiveauView, RepartitionParModuleView,
     EvolutionParAnneeView, DistributionNotesView, ComparaisonFilieresView,
@@ -8,8 +12,31 @@ from .views import (
     NiveauDetailView, ModuleDetailView,
 )
 
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def api_root(request, format=None):
+    return Response({
+        'kpi-summary': reverse('dashboard:kpi-summary', request=request, format=format),
+        'repartition-niveau': reverse('dashboard:repartition-niveau', request=request, format=format),
+        'analyse-niveaux': reverse('dashboard:analyse-niveaux', request=request, format=format),
+        'analyse-modules': reverse('dashboard:analyse-modules', request=request, format=format),
+        'analyse-etudiants': reverse('dashboard:analyse-etudiants', request=request, format=format),
+        'analyse-rattrapages': reverse('dashboard:analyse-rattrapages', request=request, format=format),
+        'recommandations': reverse('dashboard:recommandations', request=request, format=format),
+        'devoir-vs-examen': reverse('dashboard:devoir-vs-examen', request=request, format=format),
+        'points-cles': reverse('dashboard:points-cles', request=request, format=format),
+        'repartition-module': reverse('dashboard:repartition-module', request=request, format=format),
+        'evolution-annee': reverse('dashboard:evolution-annee', request=request, format=format),
+        'distribution-notes': reverse('dashboard:distribution-notes', request=request, format=format),
+        'comparaison-filieres': reverse('dashboard:comparaison-filieres', request=request, format=format),
+        'top-modules': reverse('dashboard:top-modules', request=request, format=format),
+    })
+
+
 app_name = 'dashboard'
 urlpatterns = [
+    path('', api_root, name='api-root'),
     path('kpi-summary/', KpiSummaryView.as_view(), name='kpi-summary'),
     path('repartition-niveau/', RepartitionParNiveauView.as_view(), name='repartition-niveau'),
     path('analyse-niveaux/', AnalyseNiveauxView.as_view(), name='analyse-niveaux'),
