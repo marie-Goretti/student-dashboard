@@ -29,7 +29,7 @@ services:
           name: student-dashboard-db
           property: connectionString
       - key: CORS_ALLOWED_ORIGINS
-        value: "https://student-dashboard-frontend.onrender.com"
+        value: "https://student-dashboard-frontend-z6x5.onrender.com"
       - key: PYTHON_VERSION
         value: "3.12.0"
 
@@ -44,7 +44,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_BASE_URL
-        value: "https://student-dashboard-backend.onrender.com/api"
+        value: "https://student-dashboard-backend-0pvg.onrender.com/api"
     routes:
       - type: rewrite
         source: /*
