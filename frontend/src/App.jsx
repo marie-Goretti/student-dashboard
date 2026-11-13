@@ -1,4 +1,4 @@
-﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -22,7 +22,8 @@ function PrivateRoute({ children }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login"    element={<LoginPage />} />
+      <Route path="/register" element={<LoginPage />} />
       <Route path="/" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
       <Route path="/import" element={<PrivateRoute><ImportPage /></PrivateRoute>} />
       <Route path="/niveaux" element={<PrivateRoute><NiveauxPage /></PrivateRoute>} />
