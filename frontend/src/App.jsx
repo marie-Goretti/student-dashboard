@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -22,9 +22,7 @@ function PrivateRoute({ children }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage initialMode="login" />} />
-      <Route path="/register" element={<LoginPage initialMode="register" />} />
-      <Route path="/signup" element={<LoginPage initialMode="register" />} />
+      <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
       <Route path="/import" element={<PrivateRoute><ImportPage /></PrivateRoute>} />
       <Route path="/niveaux" element={<PrivateRoute><NiveauxPage /></PrivateRoute>} />
@@ -37,7 +35,7 @@ function AppRoutes() {
       <Route path="/recommandations" element={<PrivateRoute><RecommandationsPage /></PrivateRoute>} />
       <Route path="/recommandations-decisionnelles" element={<PrivateRoute><RecommandationsPage /></PrivateRoute>} />
       <Route path="/alertes" element={<Navigate to="/recommandations" replace />} />
-      <Route path="/settings" element={<PrivateRoute><PlaceholderPage title="Paramètres" description="Configuration et préférences" /></PrivateRoute>} />
+      <Route path="/settings" element={<PrivateRoute><PlaceholderPage title="Param├¿tres" description="Configuration et pr├®f├®rences" /></PrivateRoute>} />
     </Routes>
   );
 }
