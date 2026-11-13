@@ -7,10 +7,7 @@ import {
   AlertCircle, CheckCircle2, Loader2, ArrowRight,
 } from "lucide-react";
 
-/* ─────────────────────────────────────────────────────────────────
-   Composants définis EN DEHORS du composant principal
-   => évite la recréation à chaque rendu (et la perte de focus)
-───────────────────────────────────────────────────────────────── */
+/* ─── Definis EN DEHORS pour eviter le remontage a chaque frappe ─── */
 function EyeBtn({ show, toggle }) {
   return (
     <button
@@ -55,15 +52,15 @@ function Field({ id, label, icon: Icon, type = "text", value, onChange,
   );
 }
 
-/* ─── petit hook : mode courant vient de la route (/login ou /register) ─── */
+/* ─── petit hook : mode courant vient de la route ─── */
 function useMode() {
   const { pathname } = useLocation();
   return pathname === "/register" ? "register" : "login";
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   Composant principal
-═══════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+   COMPOSANT PRINCIPAL
+   ════════════════════════════════════════════════════════════════════ */
 export default function AuthPage() {
   const mode      = useMode();
   const isReg     = mode === "register";
@@ -80,10 +77,9 @@ export default function AuthPage() {
   const [success,  setSuccess]  = useState("");
   const [loading,  setLoading]  = useState(false);
 
-  /* reset à chaque changement de mode */
+  /* reset a chaque changement de mode */
   useEffect(() => {
-    setError("");
-    setSuccess("");
+    setError(""); setSuccess("");
     setForm(f => ({ ...f, password: "", confirm: "" }));
   }, [mode]);
 
@@ -91,16 +87,13 @@ export default function AuthPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
+    setError(""); setSuccess("");
 
     if (isReg && form.password !== form.confirm) {
-      setError("Les mots de passe ne correspondent pas.");
-      return;
+      setError("Les mots de passe ne correspondent pas."); return;
     }
     if (isReg && form.password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caractères.");
-      return;
+      setError("Le mot de passe doit contenir au moins 8 caracteres."); return;
     }
 
     setLoading(true);
@@ -113,7 +106,7 @@ export default function AuthPage() {
           first_name: form.first_name,
           last_name:  form.last_name,
         });
-        setSuccess("Compte créé ! Vous pouvez maintenant vous connecter.");
+        setSuccess("Compte cree ! Vous pouvez maintenant vous connecter.");
         setTimeout(() => navigate("/login"), 1800);
       } else {
         await login(form.username, form.password);
@@ -123,7 +116,7 @@ export default function AuthPage() {
       const msg =
         err?.response?.data?.error ||
         err?.response?.data?.detail ||
-        (isReg ? "Erreur lors de la création du compte." : "Identifiants incorrects.");
+        (isReg ? "Erreur lors de la creation du compte." : "Identifiants incorrects.");
       setError(msg);
     } finally {
       setLoading(false);
@@ -132,8 +125,6 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-cream p-4">
-
-      {/* ─── card conteneur ─── */}
       <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl shadow-navy-900/10 overflow-hidden flex min-h-[560px]">
 
         {/* ════ PANNEAU GAUCHE — branding ════ */}
@@ -147,23 +138,22 @@ export default function AuthPage() {
               <span className="text-white font-serif font-bold text-xl">L</span>
             </div>
             <p className="text-white/60 text-xs uppercase tracking-widest font-semibold mb-1">
-              Lomé Business School
+              Lome Business School
             </p>
             <h1 className="text-white font-serif text-3xl font-bold leading-tight">
-              Tableau de bord<br />académique
+              Tableau de bord<br />academique
             </h1>
           </div>
 
           <div className="relative z-10 space-y-4">
             <blockquote className="border-l-2 border-maroon-500 pl-4">
               <p className="text-white/70 text-sm italic leading-relaxed">
-                "Analyser, comprendre,<br />décider."
+                "Analyser, comprendre,<br />decider."
               </p>
             </blockquote>
-
             <div className="text-white/50 text-xs">
               {isReg ? (
-                <>Déjà un compte ?{" "}
+                <>Deja un compte ?{" "}
                   <Link to="/login" className="text-white font-semibold hover:text-white/80 transition underline underline-offset-2">
                     Se connecter
                   </Link>
@@ -183,19 +173,18 @@ export default function AuthPage() {
         <div className="flex-1 flex flex-col justify-center px-8 py-10 md:px-12">
 
           <div className="mb-8">
-            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-4
+            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-4 
                             ${isReg ? "bg-maroon-50 text-maroon-500" : "bg-navy-50 text-navy-500"}`}>
               {isReg ? <UserPlus size={13} /> : <LogIn size={13} />}
               {isReg ? "Inscription" : "Connexion"}
             </div>
-
             <h2 className="text-2xl font-serif font-bold text-ink leading-snug">
-              {isReg ? "Créer un compte" : "Bon retour 👋"}
+              {isReg ? "Creer un compte" : "Bon retour"}
             </h2>
             <p className="text-ink/45 text-sm mt-1">
               {isReg
                 ? "Remplissez le formulaire pour rejoindre la plateforme."
-                : "Connectez-vous pour accéder à votre espace."}
+                : "Connectez-vous pour acceder a votre espace."}
             </p>
           </div>
 
@@ -216,7 +205,7 @@ export default function AuthPage() {
 
             {isReg && (
               <div className="grid grid-cols-2 gap-3">
-                <Field id="first_name" label="Prénom" icon={User}
+                <Field id="first_name" label="Prenom" icon={User}
                   value={form.first_name} onChange={set("first_name")}
                   placeholder="Marie" autoComplete="given-name" />
                 <Field id="last_name" label="Nom" icon={User}
@@ -235,26 +224,37 @@ export default function AuthPage() {
               value={form.username} onChange={set("username")}
               placeholder="marie.dupont" autoComplete="username" />
 
-            <Field id="password" label="Mot de passe" icon={Lock}
+            <Field
+              id="password"
+              label="Mot de passe"
+              icon={Lock}
               type={showPwd ? "text" : "password"}
-              value={form.password} onChange={set("password")}
+              value={form.password}
+              onChange={set("password")}
               placeholder="••••••••"
               autoComplete={isReg ? "new-password" : "current-password"}
-              right={<EyeBtn show={showPwd} toggle={() => setShowPwd(v => !v)} />} />
+              right={<EyeBtn show={showPwd} toggle={() => setShowPwd(v => !v)} />}
+            />
 
             {isReg && (
-              <Field id="confirm" label="Confirmer le mot de passe" icon={Lock}
+              <Field
+                id="confirm"
+                label="Confirmer le mot de passe"
+                icon={Lock}
                 type={showConf ? "text" : "password"}
-                value={form.confirm} onChange={set("confirm")}
-                placeholder="••••••••" autoComplete="new-password"
-                right={<EyeBtn show={showConf} toggle={() => setShowConf(v => !v)} />} />
+                value={form.confirm}
+                onChange={set("confirm")}
+                placeholder="••••••••"
+                autoComplete="new-password"
+                right={<EyeBtn show={showConf} toggle={() => setShowConf(v => !v)} />}
+              />
             )}
 
             <div className="pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full py-3 px-6 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2
+                className={`w-full py-3 px-6 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 
                             transition-all duration-200 shadow-lg disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer
                             ${isReg
                               ? "bg-gradient-to-r from-maroon-500 to-maroon-600 hover:from-maroon-600 hover:to-maroon-500 shadow-maroon-500/25"
@@ -263,15 +263,16 @@ export default function AuthPage() {
                 {loading ? (
                   <><Loader2 size={16} className="animate-spin" /> Patientez...</>
                 ) : (
-                  <>{isReg ? "Créer mon compte" : "Se connecter"} <ArrowRight size={16} /></>
+                  <>{isReg ? "Creer mon compte" : "Se connecter"} <ArrowRight size={16} /></>
                 )}
               </button>
             </div>
           </form>
 
+          {/* lien de bascule (mobile uniquement) */}
           <p className="md:hidden mt-6 text-center text-xs text-ink/50">
             {isReg ? (
-              <>Déjà un compte ?{" "}
+              <>Deja un compte ?{" "}
                 <Link to="/login" className="text-navy-500 font-semibold hover:underline">Se connecter</Link>
               </>
             ) : (
