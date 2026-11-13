@@ -1,4 +1,27 @@
-
-# Fichiers temporaires Python
+﻿# Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+staticfiles/
+
+# Django
+db.sqlite3
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.env
+*.local
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
