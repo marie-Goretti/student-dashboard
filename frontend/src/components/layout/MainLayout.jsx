@@ -6,7 +6,7 @@ export default function MainLayout({ children }) {
     <div className="flex bg-cream min-h-screen font-sans text-ink antialiased print:bg-white print:min-h-0">
       <Sidebar />
       <GlobalToastNotification />
-      <main className="ml-64 flex-1 p-4 md:px-6 md:py-4 overflow-x-hidden print:ml-0 print:p-0 print:overflow-visible">
+      <main className="ml-56 flex-1 p-4 md:px-5 md:py-4 overflow-x-hidden print:ml-0 print:p-0 print:overflow-visible">
         {children}
       </main>
     </div>

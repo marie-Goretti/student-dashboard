@@ -45,9 +45,10 @@ export default function PointsClesCard({ points }) {
         </div>
         <button
           onClick={handleVoirPlus}
-          className="print:hidden text-[11px] font-semibold text-white bg-ink hover:bg-navy-800 px-2.5 py-1 rounded-full transition shadow-xs cursor-pointer"
+          className="print:hidden p-1.5 rounded-lg text-ink/40 hover:text-ink hover:bg-gray-50 transition cursor-pointer"
+          title="Voir toutes les recommandations"
         >
-          Voir tout
+          <ArrowUpRight size={16} />
         </button>
       </div>
 
