@@ -10,6 +10,15 @@ h1, h2, h3 {
   @apply font-serif;
 }
 
+/* Masque les scrollbars utilitaires (filtres mobile) */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* ==========================================================================
    Styles d'impression et d'export PDF haute fidélité
    ========================================================================== */

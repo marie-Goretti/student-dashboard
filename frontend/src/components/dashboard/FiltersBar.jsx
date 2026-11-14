@@ -4,18 +4,12 @@ import { getModules, getAnnees } from '../../api/academicsService';
 import { RotateCcw } from 'lucide-react';
 
 const NIVEAU_LABELS = {
-  B1M: 'B1M',
-  B1SI: 'B1SI',
-  B2M: 'B2M',
-  B2SI: 'B2SI',
-  B3M: 'B3M',
-  B3SI: 'B3SI',
-  M1M: 'M1M',
-  M1SI: 'M1SI',
-  M2M: 'M2M',
-  M2SI: 'M2SI',
+  B1M: 'B1M', B1SI: 'B1SI',
+  B2M: 'B2M', B2SI: 'B2SI',
+  B3M: 'B3M', B3SI: 'B3SI',
+  M1M: 'M1M', M1SI: 'M1SI',
+  M2M: 'M2M', M2SI: 'M2SI',
 };
-
 const NIVEAU_ORDER = Object.keys(NIVEAU_LABELS);
 
 export default function FiltersBar({
@@ -72,98 +66,81 @@ export default function FiltersBar({
       )
     : Object.values(filters).some((v) => v !== undefined && v !== '');
 
-  const selectContainerClass =
-    'flex items-center gap-1.5 bg-white border border-cream-200 rounded-xl px-3 py-1.5 shadow-xs text-xs';
-  const labelClass = 'text-ink/50 font-medium whitespace-nowrap';
-  const selectClass = 'bg-transparent text-ink font-semibold outline-none cursor-pointer text-xs';
+  const pill = 'flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5 text-xs shrink-0';
+  const lbl  = 'text-ink/40 font-medium whitespace-nowrap';
+  const sel  = 'bg-transparent text-ink/70 font-medium outline-none cursor-pointer text-xs';
 
   return (
-    <div className="print:hidden bg-white rounded-2xl border border-cream-200 shadow-xs p-3.5 flex items-center justify-between gap-3 flex-wrap mb-6">
-      <div className="flex items-center gap-2.5 flex-wrap">
-        {/* Année */}
-        {showAnnee && (
-          <div className={selectContainerClass}>
-            <span className={labelClass}>Année</span>
-            <select
-              className={selectClass}
-              value={filters.id_annee || ''}
-              onChange={(e) => handleChange('id_annee', e.target.value)}
-            >
-              <option value="">Toutes</option>
-              {annees.map((a) => (
-                <option key={a.id_annee} value={a.id_annee}>
-                  {a.annee_academique}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+    <div className="print:hidden bg-white rounded-xl border border-gray-100 p-3 mb-4">
+      <div className="flex items-center gap-2">
+        {/* Filtres avec scroll horizontal invisible sur mobile */}
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none flex-1 pb-0.5">
 
-        {/* Programme / Filière */}
-        {showProgramme && (
-          <div className={selectContainerClass}>
-            <span className={labelClass}>Programme</span>
-            <select
-              className={selectClass}
-              value={filters.filiere || ''}
-              onChange={(e) => handleChange('filiere', e.target.value)}
-            >
-              <option value="">Tous</option>
-              <option value="management">Management</option>
-              <option value="si">Système d'Information</option>
-            </select>
-          </div>
-        )}
+          {showAnnee && (
+            <div className={pill}>
+              <span className={lbl}>Ann</span>
+              <select className={sel} value={filters.id_annee || ''} onChange={(e) => handleChange('id_annee', e.target.value)}>
+                <option value="">Toutes</option>
+                {annees.map((a) => (
+                  <option key={a.id_annee} value={a.id_annee}>{a.annee_academique}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
-        {/* Niveau */}
-        {showNiveau && (
-          <div className={selectContainerClass}>
-            <span className={labelClass}>Niveau</span>
-            <select
-              className={selectClass}
-              value={filters.id_niv || ''}
-              onChange={(e) => handleChange('id_niv', e.target.value)}
-            >
-              <option value="">Tous</option>
-              {niveaux.map((n) => (
-                <option key={n.id_niv} value={n.id_niv}>
-                  {n.code_niv}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+          {showProgramme && (
+            <div className={pill}>
+              <span className={lbl}>Prog.</span>
+              <select className={sel} value={filters.filiere || ''} onChange={(e) => handleChange('filiere', e.target.value)}>
+                <option value="">Tous</option>
+                <option value="management">Management</option>
+                <option value="si">SI</option>
+              </select>
+            </div>
+          )}
 
-        {/* Semestre */}
-        {showSemestre && (
-          <div className={selectContainerClass}>
-            <span className={labelClass}>Semestre</span>
-            <select
-              className={selectClass}
-              value={filters.semestre === 'S1' ? '1' : filters.semestre === 'S2' ? '2' : (filters.semestre || '')}
-              onChange={(e) => handleChange('semestre', e.target.value)}
-            >
-              <option value="">Tous</option>
-              <option value="1">Semestre 1</option>
-              <option value="2">Semestre 2</option>
-            </select>
-          </div>
-        )}
+          {showNiveau && (
+            <div className={pill}>
+              <span className={lbl}>Niv.</span>
+              <select className={sel} value={filters.id_niv || ''} onChange={(e) => handleChange('id_niv', e.target.value)}>
+                <option value="">Tous</option>
+                {niveaux.map((n) => (
+                  <option key={n.id_niv} value={n.id_niv}>{n.code_niv}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {showSemestre && (
+            <div className={pill}>
+              <span className={lbl}>Sem.</span>
+              <select
+                className={sel}
+                value={filters.semestre === 'S1' ? '1' : filters.semestre === 'S2' ? '2' : (filters.semestre || '')}
+                onChange={(e) => handleChange('semestre', e.target.value)}
+              >
+                <option value="">Tous</option>
+                <option value="1">S1</option>
+                <option value="2">S2</option>
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Reset */}
+        <button
+          onClick={() => onChange(defaultLatestAnnee && latestAnneeId !== undefined ? { id_annee: latestAnneeId } : {})}
+          disabled={!hasActiveFilters}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition shrink-0 ${
+            hasActiveFilters
+              ? 'text-maroon-500 hover:bg-maroon-50 cursor-pointer'
+              : 'text-ink/30 cursor-not-allowed opacity-50'
+          }`}
+        >
+          <RotateCcw size={13} />
+          <span className="hidden sm:inline">Reset</span>
+        </button>
       </div>
-
-      {/* Bouton Réinitialiser */}
-      <button
-        onClick={() => onChange(defaultLatestAnnee && latestAnneeId !== undefined ? { id_annee: latestAnneeId } : {})}
-        disabled={!hasActiveFilters}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition ${
-          hasActiveFilters
-            ? 'text-maroon-500 hover:bg-maroon-50 cursor-pointer'
-            : 'text-ink/30 cursor-not-allowed opacity-60'
-        }`}
-      >
-        <RotateCcw size={13} />
-        Réinitialiser
-      </button>
     </div>
   );
 }

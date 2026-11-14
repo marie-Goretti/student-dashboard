@@ -57,8 +57,8 @@ export default function HeroBanner({ kpi, loading = false, onAlertClick }) {
             </p>
           </div>
 
-          {/* Les 4 cartes compactes : Étudiants, Modules, Moyenne générale, Situation à surveiller */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 print:grid-cols-4">
+          {/* Les 4 cartes compactes */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3 print:grid-cols-4">
             {/* 1. Étudiants */}
             <div className="bg-white rounded-xl p-3 md:p-3.5 shadow-xs border border-cream-200/80 flex flex-col justify-between">
               <div className="flex items-center justify-between text-ink/70 mb-1.5">
