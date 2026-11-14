@@ -73,7 +73,7 @@ export default function Sidebar() {
           <img
             src="/lbs-perform-logo.png"
             alt="LBS Perform"
-            className="h-8 w-auto object-contain"
+            className="h-11 w-auto object-contain"
           />
         </NavLink>
 
