@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import * as authService from "../api/authService";
@@ -27,9 +27,9 @@ function Field({ id, label, icon: Icon, type = "text", value, onChange,
     <div>
       <label
         htmlFor={id}
-        className="flex items-center gap-1.5 text-xs font-semibold text-navy-600 mb-1.5 tracking-wide uppercase"
+        className="flex items-center gap-1.5 text-[11px] font-medium text-ink/40 mb-1.5 tracking-wide uppercase"
       >
-        {Icon && <Icon size={12} className="opacity-60" />}
+        {Icon && <Icon size={11} className="opacity-50" />}
         {label}
       </label>
       <div className="relative">
@@ -41,10 +41,10 @@ function Field({ id, label, icon: Icon, type = "text", value, onChange,
           placeholder={placeholder}
           autoComplete={autoComplete}
           required
-          className="w-full px-4 py-2.5 rounded-xl border border-cream-200 bg-cream-100
-                     text-ink text-sm placeholder:text-ink/30
-                     focus:outline-none focus:border-navy-400 focus:bg-white
-                     focus:ring-2 focus:ring-navy-400/15 transition-all duration-200"
+          className="w-full px-3.5 py-2.5 rounded-lg border border-gray-100 bg-gray-50
+                     text-ink text-sm placeholder:text-ink/25
+                     focus:outline-none focus:border-navy-300 focus:bg-white
+                     focus:ring-1 focus:ring-navy-200 transition-all duration-200"
         />
         {right}
       </div>
@@ -125,42 +125,41 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-cream p-4">
-      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl shadow-navy-900/10 overflow-hidden flex min-h-[560px]">
+      <div className="w-full max-w-3xl bg-white rounded-2xl overflow-hidden flex min-h-[520px] border border-gray-100">
 
         {/* ════ PANNEAU GAUCHE — branding ════ */}
-        <div className="hidden md:flex flex-col justify-between w-2/5 bg-gradient-to-br from-navy-700 via-navy-600 to-navy-500 p-10 relative overflow-hidden select-none">
-          <div className="absolute -top-16 -left-16 w-64 h-64 rounded-full bg-white/5" />
-          <div className="absolute -bottom-20 -right-16 w-80 h-80 rounded-full bg-maroon-500/20" />
-          <div className="absolute top-1/2 right-0 w-40 h-40 rounded-full bg-navy-400/30" />
-
+        <div className="hidden md:flex flex-col justify-between w-2/5 bg-navy-600 p-10 relative overflow-hidden select-none">
+          <div className="absolute inset-0 bg-gradient-to-br from-navy-700 to-navy-500 opacity-80" />
           <div className="relative z-10">
-            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center mb-6 border border-white/20">
-              <span className="text-white font-serif font-bold text-xl">L</span>
-            </div>
-            <p className="text-white/60 text-xs uppercase tracking-widest font-semibold mb-1">
+            <img
+              src="/lbs-perform-logo.png"
+              alt="LBS Perform"
+              className="h-10 w-auto object-contain brightness-0 invert mb-8"
+            />
+            <p className="text-white/40 text-[10px] uppercase tracking-widest font-medium mb-2">
               Lome Business School
             </p>
-            <h1 className="text-white font-serif text-3xl font-bold leading-tight">
-              Tableau de bord<br />academique
+            <h1 className="text-white font-serif text-2xl font-semibold leading-snug">
+              Tableau de bord<br />académique
             </h1>
           </div>
 
           <div className="relative z-10 space-y-4">
-            <blockquote className="border-l-2 border-maroon-500 pl-4">
-              <p className="text-white/70 text-sm italic leading-relaxed">
-                "Analyser, comprendre,<br />decider."
+            <blockquote className="border-l-2 border-white/20 pl-4">
+              <p className="text-white/50 text-sm italic leading-relaxed">
+                "Analyser, comprendre,<br />décider."
               </p>
             </blockquote>
-            <div className="text-white/50 text-xs">
+            <div className="text-white/40 text-xs">
               {isReg ? (
-                <>Deja un compte ?{" "}
-                  <Link to="/login" className="text-white font-semibold hover:text-white/80 transition underline underline-offset-2">
+                <>Déjà un compte ?{" "}
+                  <Link to="/login" className="text-white/70 font-medium hover:text-white transition underline underline-offset-2">
                     Se connecter
                   </Link>
                 </>
               ) : (
                 <>Pas encore de compte ?{" "}
-                  <Link to="/register" className="text-white font-semibold hover:text-white/80 transition underline underline-offset-2">
+                  <Link to="/register" className="text-white/70 font-medium hover:text-white transition underline underline-offset-2">
                     S'inscrire
                   </Link>
                 </>
@@ -170,33 +169,33 @@ export default function AuthPage() {
         </div>
 
         {/* ════ PANNEAU DROIT — formulaire ════ */}
-        <div className="flex-1 flex flex-col justify-center px-8 py-10 md:px-12">
+        <div className="flex-1 flex flex-col justify-center px-8 py-10 md:px-10">
 
-          <div className="mb-8">
-            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-4 
+          <div className="mb-7">
+            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium uppercase tracking-wider mb-4
                             ${isReg ? "bg-maroon-50 text-maroon-500" : "bg-navy-50 text-navy-500"}`}>
-              {isReg ? <UserPlus size={13} /> : <LogIn size={13} />}
+              {isReg ? <UserPlus size={11} /> : <LogIn size={11} />}
               {isReg ? "Inscription" : "Connexion"}
             </div>
-            <h2 className="text-2xl font-serif font-bold text-ink leading-snug">
-              {isReg ? "Creer un compte" : "Bon retour"}
+            <h2 className="text-xl font-semibold text-ink leading-snug">
+              {isReg ? "Créer un compte" : "Bon retour"}
             </h2>
-            <p className="text-ink/45 text-sm mt-1">
+            <p className="text-ink/40 text-sm mt-1">
               {isReg
                 ? "Remplissez le formulaire pour rejoindre la plateforme."
-                : "Connectez-vous pour acceder a votre espace."}
+                : "Connectez-vous pour accéder à votre espace."}
             </p>
           </div>
 
           {error && (
-            <div className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-xs flex items-start gap-2.5">
-              <AlertCircle size={15} className="shrink-0 mt-0.5" />
+            <div className="mb-5 p-3 rounded-lg bg-red-50 border border-red-100 text-red-500 text-xs flex items-start gap-2">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
           {success && (
-            <div className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs flex items-start gap-2.5">
-              <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
+            <div className="mb-5 p-3 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs flex items-start gap-2">
+              <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
               <span>{success}</span>
             </div>
           )}
@@ -250,34 +249,34 @@ export default function AuthPage() {
               />
             )}
 
-            <div className="pt-2">
+            <div className="pt-1">
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full py-3 px-6 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 
-                            transition-all duration-200 shadow-lg disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer
+                className={`w-full py-2.5 px-6 rounded-lg font-medium text-sm text-white flex items-center justify-center gap-2 
+                            transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer
                             ${isReg
-                              ? "bg-gradient-to-r from-maroon-500 to-maroon-600 hover:from-maroon-600 hover:to-maroon-500 shadow-maroon-500/25"
-                              : "bg-gradient-to-r from-navy-500 to-navy-600 hover:from-navy-600 hover:to-navy-500 shadow-navy-500/25"}`}
+                              ? "bg-maroon-500 hover:bg-maroon-600"
+                              : "bg-navy-600 hover:bg-navy-700"}`}
               >
                 {loading ? (
-                  <><Loader2 size={16} className="animate-spin" /> Patientez...</>
+                  <><Loader2 size={15} className="animate-spin" /> Patientez...</>
                 ) : (
-                  <>{isReg ? "Creer mon compte" : "Se connecter"} <ArrowRight size={16} /></>
+                  <>{isReg ? "Créer mon compte" : "Se connecter"} <ArrowRight size={15} /></>
                 )}
               </button>
             </div>
           </form>
 
           {/* lien de bascule (mobile uniquement) */}
-          <p className="md:hidden mt-6 text-center text-xs text-ink/50">
+          <p className="md:hidden mt-5 text-center text-xs text-ink/40">
             {isReg ? (
-              <>Deja un compte ?{" "}
-                <Link to="/login" className="text-navy-500 font-semibold hover:underline">Se connecter</Link>
+              <>Déjà un compte ?{" "}
+                <Link to="/login" className="text-navy-500 font-medium hover:underline">Se connecter</Link>
               </>
             ) : (
               <>Pas encore de compte ?{" "}
-                <Link to="/register" className="text-maroon-500 font-semibold hover:underline">S'inscrire</Link>
+                <Link to="/register" className="text-maroon-500 font-medium hover:underline">S'inscrire</Link>
               </>
             )}
           </p>

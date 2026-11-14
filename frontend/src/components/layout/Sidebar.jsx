@@ -1,5 +1,4 @@
 import {
-  Zap,
   Upload,
   LayoutGrid,
   Layers,
@@ -63,29 +62,23 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="print:hidden w-64 bg-white border-r border-cream-200 h-screen flex flex-col justify-between p-4 fixed left-0 top-0 z-40 select-none">
-      {/* 1. Sur le haut : Le logo & Nom de la plateforme */}
+    <aside className="print:hidden w-56 bg-white border-r border-gray-100 h-screen flex flex-col justify-between py-6 px-3 fixed left-0 top-0 z-40 select-none">
+      {/* 1. Logo & Nom */}
       <div>
         <NavLink
           to="/"
-          title="EduPulse - Lomé Business School"
-          className="flex items-center gap-3 px-2 mb-6 group"
+          title="LBS Perform"
+          className="flex items-center px-2 mb-8 group"
         >
-          <div className="w-10 h-10 rounded-xl bg-maroon-500 text-white flex items-center justify-center shadow-sm shadow-maroon-500/20 shrink-0 group-hover:scale-105 transition-transform">
-            <Zap size={20} className="fill-white" />
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="font-bold text-ink text-base tracking-tight leading-tight">
-              EduPulse
-            </span>
-            <span className="text-[11px] text-ink/45 font-medium truncate">
-              Lomé Business School
-            </span>
-          </div>
+          <img
+            src="/lbs-perform-logo.png"
+            alt="LBS Perform"
+            className="h-8 w-auto object-contain"
+          />
         </NavLink>
 
-        {/* 2. Au milieu : Navigation avec icône + nom de chaque page */}
-        <nav className="flex flex-col gap-1.5 overflow-y-auto max-h-[calc(100vh-220px)] pr-1">
+        {/* 2. Navigation */}
+        <nav className="flex flex-col gap-0.5 overflow-y-auto max-h-[calc(100vh-200px)]">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -95,14 +88,14 @@ export default function Sidebar() {
                 end={item.end}
                 title={item.title}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
                     isActive
-                      ? 'bg-navy-600 text-white shadow-sm font-semibold'
-                      : 'text-ink/65 hover:text-ink hover:bg-cream-100'
+                      ? 'bg-navy-600 text-white'
+                      : 'text-ink/50 hover:text-ink hover:bg-gray-50'
                   }`
                 }
               >
-                <Icon size={18} className="shrink-0" />
+                <Icon size={16} className="shrink-0" />
                 <span className="truncate">{item.label}</span>
               </NavLink>
             );
@@ -110,29 +103,29 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* 3. Sur le bas : Paramètres & Déconnexion */}
-      <div className="flex flex-col gap-1.5 pt-3 border-t border-cream-200 shrink-0">
+      {/* 3. Bas : Paramètres & Déconnexion */}
+      <div className="flex flex-col gap-0.5 pt-4 border-t border-gray-100">
         <NavLink
           to="/settings"
           title="Paramètres"
           className={({ isActive }) =>
-            `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+            `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
               isActive
-                ? 'bg-navy-600 text-white shadow-sm font-semibold'
-                : 'text-ink/65 hover:text-ink hover:bg-cream-100'
+                ? 'bg-navy-600 text-white'
+                : 'text-ink/50 hover:text-ink hover:bg-gray-50'
             }`
           }
         >
-          <Settings size={18} className="shrink-0" />
+          <Settings size={16} className="shrink-0" />
           <span className="truncate">Paramètres</span>
         </NavLink>
 
         <button
           onClick={logout}
           title="Déconnexion"
-          className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-maroon-600 hover:bg-maroon-50 transition-all cursor-pointer w-full text-left"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium text-maroon-500 hover:bg-maroon-50 transition-all cursor-pointer w-full text-left"
         >
-          <LogOut size={18} className="shrink-0" />
+          <LogOut size={16} className="shrink-0" />
           <span className="truncate">Déconnexion</span>
         </button>
       </div>
