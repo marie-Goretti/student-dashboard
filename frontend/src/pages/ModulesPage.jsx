@@ -5,13 +5,30 @@ import HeaderBar from '../components/layout/HeaderBar';
 import FiltersBar from '../components/dashboard/FiltersBar';
 import Pagination from '../components/common/Pagination';
 import { getAnalyseModules } from '../api/dashboardService';
+import { getAnnees } from '../api/academicsService';
 import { Loader2, ChevronRight } from 'lucide-react';
 
 export default function ModulesPage() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState({});
+  const [isReady, setIsReady] = useState(false);
   const [data, setData] = useState({ top_modules: [], attention_modules: [] });
   const [loading, setLoading] = useState(true);
+
+  // Charger la dernière année (la plus élevée) par défaut
+  useEffect(() => {
+    getAnnees()
+      .then((res) => {
+        const list = (res.results ?? res)
+          .filter((a) => a.annee_academique && a.annee_academique !== 'nan' && a.annee_academique !== 'None')
+          .sort((a, b) => String(b.annee_academique).localeCompare(String(a.annee_academique)));
+        if (list.length > 0) {
+          setFilters({ id_annee: list[0].id_annee });
+        }
+        setIsReady(true);
+      })
+      .catch(() => setIsReady(true));
+  }, []);
 
   // Pagination pour les modules les plus performants
   const [topPage, setTopPage] = useState(1);
@@ -22,6 +39,7 @@ export default function ModulesPage() {
   const [attentionPageSize, setAttentionPageSize] = useState(10);
 
   const loadData = useCallback(async () => {
+    if (!isReady) return;
     setLoading(true);
     try {
       const res = await getAnalyseModules(filters);
@@ -31,7 +49,7 @@ export default function ModulesPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, isReady]);
 
   useEffect(() => {
     loadData();
@@ -63,7 +81,7 @@ export default function ModulesPage() {
       <HeaderBar title="Analyse des modules" />
 
       {/* Barre de filtres (sans résultat) */}
-      <FiltersBar filters={filters} onChange={setFilters} />
+      <FiltersBar filters={filters} onChange={setFilters} defaultLatestAnnee={true} />
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3 bg-white rounded-3xl border border-cream-200">

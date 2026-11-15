@@ -4,6 +4,7 @@ import MainLayout from '../components/layout/MainLayout';
 import HeaderBar from '../components/layout/HeaderBar';
 import FiltersBar from '../components/dashboard/FiltersBar';
 import { getRecommandations } from '../api/dashboardService';
+import { getAnnees } from '../api/academicsService';
 import {
   exportDashboardToPdf,
   exportSingleRecommendationToPdf,
@@ -29,6 +30,7 @@ export default function RecommandationsPage() {
   const navigate = useNavigate();
   const pageContainerRef = useRef(null);
   const [filters, setFilters] = useState({});
+  const [isReady, setIsReady] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [openCards, setOpenCards] = useState({});
@@ -45,11 +47,27 @@ export default function RecommandationsPage() {
     }
   });
 
+  // Charger la dernière année (la plus élevée) par défaut
+  useEffect(() => {
+    getAnnees()
+      .then((res) => {
+        const list = (res.results ?? res)
+          .filter((a) => a.annee_academique && a.annee_academique !== 'nan' && a.annee_academique !== 'None')
+          .sort((a, b) => String(b.annee_academique).localeCompare(String(a.annee_academique)));
+        if (list.length > 0) {
+          setFilters({ id_annee: list[0].id_annee });
+        }
+        setIsReady(true);
+      })
+      .catch(() => setIsReady(true));
+  }, []);
+
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'elevee' | 'moyenne' | 'positive'
   const [activeCategory, setActiveCategory] = useState('all'); // 'all' | 'matiere' | 'etudiant' | 'semestre'
   const [searchTerm, setSearchTerm] = useState('');
 
   const loadData = useCallback(async () => {
+    if (!isReady) return;
     setLoading(true);
     try {
       const res = await getRecommandations(filters);
@@ -67,7 +85,7 @@ export default function RecommandationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, isReady]);
 
   useEffect(() => {
     loadData();
@@ -121,7 +139,7 @@ export default function RecommandationsPage() {
     if (filters.semestre) parts.push(`Semestre : S${String(filters.semestre).replace(/\D/g, '')}`);
     if (filters.module) parts.push(`Module : ${filters.module}`);
     return parts.length > 0 ? parts.join(' • ') : 'Toutes les cohortes';
-  }, [filters]);
+  }, [filters, isReady]);
 
   // Export individuel d'une recommandation en PDF
   const handleExportSinglePdf = async (rec) => {
@@ -290,6 +308,7 @@ export default function RecommandationsPage() {
           showNiveau={true}
           showModule={true}
           showSemestre={true}
+          defaultLatestAnnee={true}
         />
 
         {/* 3. Description méthodologique & actions globales */}

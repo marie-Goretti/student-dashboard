@@ -5,18 +5,36 @@ import HeaderBar from '../components/layout/HeaderBar';
 import Pagination from '../components/common/Pagination';
 import FiltersBar from '../components/dashboard/FiltersBar';
 import { getAnalyseEtudiants } from '../api/dashboardService';
+import { getAnnees } from '../api/academicsService';
 import { Search, Loader2 } from 'lucide-react';
 
 export default function StudentsSearchPage() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState({});
+  const [isReady, setIsReady] = useState(false);
   const [search, setSearch] = useState('');
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  // Charger la dernière année (la plus élevée) par défaut
+  useEffect(() => {
+    getAnnees()
+      .then((res) => {
+        const list = (res.results ?? res)
+          .filter((a) => a.annee_academique && a.annee_academique !== 'nan' && a.annee_academique !== 'None')
+          .sort((a, b) => String(b.annee_academique).localeCompare(String(a.annee_academique)));
+        if (list.length > 0) {
+          setFilters({ id_annee: list[0].id_annee });
+        }
+        setIsReady(true);
+      })
+      .catch(() => setIsReady(true));
+  }, []);
+
   const loadData = useCallback(async () => {
+    if (!isReady) return;
     setLoading(true);
     try {
       const res = await getAnalyseEtudiants(filters, search);
@@ -26,7 +44,7 @@ export default function StudentsSearchPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters, search]);
+  }, [filters, search, isReady]);
 
   useEffect(() => {
     // Petit debounce pour la recherche textuelle
@@ -57,6 +75,7 @@ export default function StudentsSearchPage() {
         filters={filters}
         onChange={setFilters}
         showAnnee={true}
+        defaultLatestAnnee={true}
       />
 
       {/* Card principale avec Recherche et Tableau des étudiants */}
